@@ -1,16 +1,33 @@
 package srdesign.scoreboardcontrollerv1;
 
+import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.Dialog;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.CountDownTimer;
-import android.support.v7.app.ActionBarActivity;
+import android.os.Handler;
+import android.provider.Settings;
 import android.os.Bundle;
+import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 import android.widget.ToggleButton;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.Set;
+import java.util.UUID;
 
 public class ScoringActivity extends ActionBarActivity {
 
@@ -20,14 +37,29 @@ public class ScoringActivity extends ActionBarActivity {
 
     private TextView timerValueView;
 
-    private long timerValue = 5001;
+    private long previousTimerValue = 00;
+    private long timerValue = 00;
 
     private CountDownTimer countDownTimer;
+
+    private boolean isPaired = false;
+    private boolean isConnected = false;
+
+    private BluetoothAdapter bluetoothAdapter;
+    private BluetoothDevice bluetoothDevice;
+
+    private ConnectThread connectThread;
+    private ConnectedThread connectedThread;
+
+    private Button connectionButton;
+    private Button pairingButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scoring);
+
+        initializeAdapter();
 
         timerValueView = (TextView) findViewById(R.id.timerValue);
         timerValueView.setOnClickListener(new View.OnClickListener() {
@@ -42,6 +74,24 @@ public class ScoringActivity extends ActionBarActivity {
                 dialogButton.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
+                        EditText minutesView = (EditText) dialog.findViewById(R.id.minutesField);
+                        String minutesString = minutesView.getText().toString();
+                        long minutes = 0;
+                        if (minutesString.length() > 0) {
+                            minutes = Long.parseLong(minutesString);
+                        }
+
+                        EditText secondsView = (EditText) dialog.findViewById(R.id.secondsField);
+                        String secondsString = secondsView.getText().toString();
+                        long seconds = 0;
+                        if (secondsString.length() > 0){
+                            seconds = Long.parseLong(secondsString);
+                        }
+
+                        timerValue = (minutes*60 + seconds)*1000; //Convert to milliseconds
+                        previousTimerValue = timerValue;
+
+                        updateCounterView();
                         dialog.dismiss();
                     }
                 });
@@ -73,28 +123,164 @@ public class ScoringActivity extends ActionBarActivity {
                     startStopButton.toggle();
                 }
                 countDownTimer.cancel();
-                timerValue = 5001;
+                timerValue = previousTimerValue;
                 initializeCountDownTimer();
+            }
+        });
+
+        pairingButton = (Button) findViewById(R.id.pairingButton);
+        pairingButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!isPaired) {
+                    AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                    builder.setMessage("Please pair with HC-06 Then Return");
+                    builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            Intent intentBluetooth = new Intent();
+                            intentBluetooth.setAction(Settings.ACTION_BLUETOOTH_SETTINGS);
+                            startActivityForResult(intentBluetooth, 0);
+                            dialog.dismiss();
+                        }
+                    });
+                    builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.cancel();
+                        }
+                    });
+                    AlertDialog alertDialog = builder.create();
+
+                    alertDialog.show();
+                }
+            }
+        });
+
+        connectionButton = (Button) findViewById(R.id.connectionButton);
+        connectionButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!isConnected) {
+                    initializeConnection();
+                } else {
+                    connectionButton.setEnabled(false);
+                }
             }
         });
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateUI();
+    }
+
+    public void updateUI() {
+        if(isPaired) {
+            pairingButton.setEnabled(false);
+        }
+        if (isConnected) {
+            connectionButton.setEnabled(false);
+        }
+
+        updateCounterView();
+    }
+
+    private void initializeAdapter() {
+        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
+        if (!bluetoothAdapter.isEnabled()) {
+            Intent enableBluetooth = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableBluetooth, 0);
+        }
+
+        Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
+
+        if (pairedDevices.size() > 0) {
+            for (BluetoothDevice device : pairedDevices) {
+                if (device.getName().equals("HC-06")) {
+                    bluetoothDevice = device;
+                    isPaired = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    private void initializeConnection() {
+        if (connectThread != null) {
+            connectThread.cancel();
+            connectThread = null;
+        }
+
+        connectThread = new ConnectThread(bluetoothDevice);
+        connectThread.start();
+    }
+
+//    private void initializeConnection() {
+//        UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
+//        try {
+//            btSocket = bluetoothDevice.createRfcommSocketToServiceRecord(uuid);
+//            btSocket.connect();
+//            btOutputStream = btSocket.getOutputStream();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//
+//        if (btOutputStream != null) {
+//            isConnected = true;
+//            connectionButton.setEnabled(false);
+//            sendMessageToDuino("@");
+//        }
+//    }
+//
+//    private void sendMessageToDuino(String message) {
+//        byte[] bytes = message.getBytes();
+//
+//        try {
+//            btOutputStream.write(bytes);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//    }
+
+    private void updateCounterView() {
+        int seconds = (int) (timerValue/1000);
+        int minutes = seconds/60;
+        seconds = seconds % 60;
+
+        String timerString = "";
+
+        if (seconds < 10) {
+            timerValueView.setText("" + minutes + ":0" + seconds);
+            if (minutes < 10) {
+                timerString = "0" + minutes + "0" + seconds;
+            } else {
+                timerString = minutes + "0" + seconds;
+            }
+        } else {
+            timerValueView.setText("" + minutes + ":" + seconds);
+            if (minutes < 10) {
+                timerString = "0" + minutes + seconds;
+            } else {
+                timerString = "" + minutes + seconds;
+            }
+        }
+
+        if (isConnected) {
+            connectedThread.write("F" + timerString);
+        }
+    }
+
     private void initializeCountDownTimer() {
-        timerValueView.setText("0:05");
-        countDownTimer = new CountDownTimer(timerValue, 1) {
+        updateCounterView();
+        countDownTimer = new CountDownTimer(timerValue, 500) {
             @Override
             public void onTick(long millisUntilFinished) {
                 timerValue = millisUntilFinished;
 
-                int seconds = (int) (millisUntilFinished/1000);
-                int minutes = seconds/60;
-                seconds = seconds % 60;
-
-                if (seconds < 10) {
-                    timerValueView.setText("" + minutes + ":0" + seconds);
-                } else {
-                    timerValueView.setText("" + minutes + ":" + seconds);
-                }
+                updateCounterView();
             }
 
             @Override
@@ -104,6 +290,21 @@ public class ScoringActivity extends ActionBarActivity {
             }
         };
     }
+
+    Handler connectionHandler = new Handler();
+    Runnable connectionFailRunnable = new Runnable() {
+        public void run() {
+            Toast.makeText(context, "Move Closer To Scoreboard", Toast.LENGTH_LONG).show();
+        }
+    };
+
+    Runnable connectionSuccessRunnable = new Runnable() {
+        @Override
+        public void run() {
+            Toast.makeText(context, "Success!!", Toast.LENGTH_LONG).show();
+            connectionButton.setEnabled(false);
+        }
+    };
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -125,5 +326,120 @@ public class ScoringActivity extends ActionBarActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    private class ConnectThread extends Thread {
+        private final BluetoothSocket btSocket;
+        private final BluetoothDevice btDevice;
+
+        public ConnectThread(BluetoothDevice device) {
+            BluetoothSocket tmp = null;
+            btDevice = device;
+
+            UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
+
+            try {
+                tmp = btDevice.createRfcommSocketToServiceRecord(uuid);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            btSocket = tmp;
+        }
+
+        public void run() {
+            bluetoothAdapter.cancelDiscovery();
+
+            try {
+                btSocket.connect();
+            } catch (IOException e) {
+                try {
+                    btSocket.close();
+                } catch (IOException e1) {
+                    e1.printStackTrace();
+                    return;
+                }
+                e.printStackTrace();
+            }
+            manageConnectedSocket(btSocket, btDevice);
+        }
+
+        public void cancel() {
+            try {
+                btSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public synchronized void manageConnectedSocket(BluetoothSocket socket, final BluetoothDevice device) {
+        if (socket.isConnected()) {
+            isConnected = true;
+
+            connectionHandler.post(connectionSuccessRunnable);
+
+            connectedThread = new ConnectedThread(socket);
+            connectedThread.start();
+        } else {
+            connectionHandler.post(connectionFailRunnable);
+        }
+    }
+
+    private class ConnectedThread extends Thread {
+        private final BluetoothSocket btSocket;
+        private final InputStream inputStream;
+        private final OutputStream outputStream;
+
+        public ConnectedThread(BluetoothSocket socket) {
+            btSocket = socket;
+            InputStream tempIn = null;
+            OutputStream tempOut = null;
+
+            try {
+                tempIn = btSocket.getInputStream();
+                tempOut = btSocket.getOutputStream();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            inputStream = tempIn;
+            outputStream = tempOut;
+        }
+
+        @Override
+        public void run() {
+            byte[] buffer = new byte[1024];
+            int bytes;
+
+            while (true) {
+                try {
+                    bytes = inputStream.read(buffer);
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                //USE HANDLER TO READ MESSAGES
+            }
+        }
+
+        public void write(String string) {
+            byte[] bytes = string.getBytes();
+
+            try {
+                outputStream.write(bytes);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        public void cancel() {
+            try {
+                btSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 }

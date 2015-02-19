@@ -114,6 +114,30 @@ public class ScoringActivity extends ActionBarActivity {
         updateCounterView();
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        if (isConnected) {
+            connectedThread.cancel();
+            connectedThread = null;
+            isConnected = false;
+            isUnlocked = false;
+        }
+    }
+
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (isConnected) {
+            connectedThread.cancel();
+            connectedThread = null;
+            isConnected = false;
+            isUnlocked = false;
+        }
+    }
+
     private void updateTimerValue() {
         long minutesValue = Long.parseLong(minutesButton.getText().toString());
         long secondsValue = Long.parseLong(secondsButton.getText().toString());
@@ -153,9 +177,9 @@ public class ScoringActivity extends ActionBarActivity {
 
         timerString = minutesButton.getText().toString() + secondsButton.getText().toString();
 
-        if (isConnected && isUnlocked) {
-            connectedThread.write("F" + macAddress + "4" + timerString);
-        }
+//        if (isConnected && isUnlocked) {
+//            connectedThread.write("F" + macAddress + "4" + timerString);
+//        }
     }
 
     private void updateScore(Button scoreButton, String scoreValue) {
@@ -359,7 +383,7 @@ public class ScoringActivity extends ActionBarActivity {
 
     private void unlockScoreboard() {
         if (isConnected) {
-            connectedThread.write("U" + macAddress + "1234");
+            connectedThread.write("U" + macAddress + "4" + "1234");
             isUnlocked = true;
 
             connectionHandler.post(unlockSuccessRunnable);

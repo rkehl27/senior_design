@@ -1,6 +1,5 @@
 package srdesign.scoreboardcontrollerv1;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.bluetooth.BluetoothAdapter;
@@ -18,7 +17,6 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
@@ -26,6 +24,7 @@ import android.widget.ToggleButton;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
 
@@ -33,9 +32,11 @@ public class ScoringActivity extends ActionBarActivity {
 
     final Context context = this;
     private ToggleButton startStopButton;
-    private Button resetButton;
 
     private TextView timerValueView;
+
+    private Button minutesButton;
+    private Button secondsButton;
 
     private long previousTimerValue = 00;
     private long timerValue = 00;
@@ -44,6 +45,7 @@ public class ScoringActivity extends ActionBarActivity {
 
     private boolean isPaired = false;
     private boolean isConnected = false;
+    private boolean isUnlocked = false;
 
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothDevice bluetoothDevice;
@@ -51,53 +53,25 @@ public class ScoringActivity extends ActionBarActivity {
     private ConnectThread connectThread;
     private ConnectedThread connectedThread;
 
-    private Button connectionButton;
-    private Button pairingButton;
+    private String macAddress = "112233445566";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scoring);
 
-        initializeAdapter();
+//        timerValueView = (TextView) findViewById(R.id.timerValue);
+//        timerValueView.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//            }
+//        });
 
-        timerValueView = (TextView) findViewById(R.id.timerValue);
-        timerValueView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                final Dialog dialog = new Dialog(context);
-                dialog.setContentView(R.layout.dialog_timer);
-                dialog.setTitle("Set Timer");
-                dialog.getWindow().setLayout(425,400);
+        minutesButton = (Button) findViewById(R.id.minutesButton);
+        secondsButton = (Button) findViewById(R.id.secondsButton);
 
-                Button dialogButton = (Button) dialog.findViewById(R.id.button);
-                dialogButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        EditText minutesView = (EditText) dialog.findViewById(R.id.minutesField);
-                        String minutesString = minutesView.getText().toString();
-                        long minutes = 0;
-                        if (minutesString.length() > 0) {
-                            minutes = Long.parseLong(minutesString);
-                        }
-
-                        EditText secondsView = (EditText) dialog.findViewById(R.id.secondsField);
-                        String secondsString = secondsView.getText().toString();
-                        long seconds = 0;
-                        if (secondsString.length() > 0){
-                            seconds = Long.parseLong(secondsString);
-                        }
-
-                        timerValue = (minutes*60 + seconds)*1000; //Convert to milliseconds
-                        previousTimerValue = timerValue;
-
-                        updateCounterView();
-                        dialog.dismiss();
-                    }
-                });
-                dialog.show();
-            }
-        });
+        minutesButton.setOnClickListener(new NumberClickListener(minutesButton));
+        secondsButton.setOnClickListener(new NumberClickListener(secondsButton));
 
         startStopButton = (ToggleButton) findViewById(R.id.startStopButton);
         startStopButton.setOnClickListener(new View.OnClickListener() {
@@ -114,7 +88,7 @@ public class ScoringActivity extends ActionBarActivity {
             }
         });
 
-        resetButton = (Button) findViewById(R.id.resetButton);
+        Button resetButton = (Button) findViewById(R.id.resetButton);
         resetButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -128,63 +102,300 @@ public class ScoringActivity extends ActionBarActivity {
             }
         });
 
-        pairingButton = (Button) findViewById(R.id.pairingButton);
-        pairingButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (!isPaired) {
-                    AlertDialog.Builder builder = new AlertDialog.Builder(context);
-                    builder.setMessage("Please pair with HC-06 Then Return");
-                    builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            Intent intentBluetooth = new Intent();
-                            intentBluetooth.setAction(Settings.ACTION_BLUETOOTH_SETTINGS);
-                            startActivityForResult(intentBluetooth, 0);
-                            dialog.dismiss();
-                        }
-                    });
-                    builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            dialog.cancel();
-                        }
-                    });
-                    AlertDialog alertDialog = builder.create();
+        final Button homeScoreButton = (Button) findViewById(R.id.homeScoreButton);
+        homeScoreButton.setOnClickListener(new NumberClickListener(homeScoreButton));
 
-                    alertDialog.show();
-                }
-            }
-        });
+        final Button awayScoreButton = (Button) findViewById(R.id.awayScoreButton);
+        awayScoreButton.setOnClickListener(new NumberClickListener(awayScoreButton));
 
-        connectionButton = (Button) findViewById(R.id.connectionButton);
-        connectionButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (!isConnected) {
-                    initializeConnection();
-                } else {
-                    connectionButton.setEnabled(false);
-                }
+        final Button periodButton = (Button) findViewById(R.id.periodButton);
+        periodButton.setOnClickListener(new NumberClickListener(periodButton));
+
+        updateCounterView();
+    }
+
+    private void updateTimerValue() {
+        long minutesValue = Long.parseLong(minutesButton.getText().toString());
+        long secondsValue = Long.parseLong(secondsButton.getText().toString());
+
+        timerValue = (minutesValue*60 + secondsValue)*1000;
+        previousTimerValue = timerValue;
+
+        String timerString = minutesButton.getText().toString() + secondsButton.getText().toString();
+
+        if (isConnected && isUnlocked) {
+            connectedThread.write("F" + macAddress + "4" + timerString);
+        } else {
+            Toast.makeText(context, "Not Connected", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void updateCounterView() {
+        int seconds = (int) (timerValue/1000);
+        int minutes = seconds/60;
+        seconds = seconds % 60;
+
+        String timerString = "";
+
+        if (seconds < 10 && minutes < 10) {
+            minutesButton.setText("0" + minutes);
+            secondsButton.setText("0" + seconds);
+        } else if (seconds < 10) {
+            minutesButton.setText("" + minutes);
+            secondsButton.setText("0" + seconds);
+        } else if (minutes < 10) {
+            minutesButton.setText("0" + minutes);
+            secondsButton.setText("" + seconds);
+        } else {
+            minutesButton.setText("" + minutes);
+            secondsButton.setText("" + seconds);
+        }
+
+        timerString = minutesButton.getText().toString() + secondsButton.getText().toString();
+
+        if (isConnected && isUnlocked) {
+            connectedThread.write("F" + macAddress + "4" + timerString);
+        }
+    }
+
+    private void updateScore(Button scoreButton, String scoreValue) {
+        scoreButton.setText(scoreValue);
+
+        if (isConnected && isUnlocked) {
+            if (scoreButton.getTag().toString().contains("Home")) {
+                connectedThread.write("G" + macAddress + "30" + scoreValue);
+            } else if(scoreButton.getTag().toString().contains("Away")) {
+                connectedThread.write("H" + macAddress + "30" + scoreValue);
             }
-        });
+        } else {
+            Toast.makeText(context, "Not Connected", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void updatePeriod(Button periodButton, String periodValue) {
+        periodButton.setText(periodValue);
+
+        if (isConnected && isUnlocked) {
+            connectedThread.write("P" + macAddress + "1" + periodValue);
+        } else {
+            Toast.makeText(context, "Not Connected", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void initializeCountDownTimer() {
+        updateCounterView();
+        countDownTimer = new CountDownTimer(timerValue, 500) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                timerValue = millisUntilFinished;
+
+                updateCounterView();
+            }
+
+            @Override
+            public void onFinish() {
+                startStopButton.toggle();
+            }
+        };
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        updateUI();
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.menu_scoring, menu);
+        return true;
     }
 
-    public void updateUI() {
-        if(isPaired) {
-            pairingButton.setEnabled(false);
-        }
-        if (isConnected) {
-            connectionButton.setEnabled(false);
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id = item.getItemId();
+
+        if (id == R.id.action_connect) {
+            connectionButtonPressed();
         }
 
-        updateCounterView();
+        return super.onOptionsItemSelected(item);
+    }
+
+    /********************************** DIALOG **********************************/
+
+    private class NumberClickListener implements View.OnClickListener {
+        Button buttonClicked = null;
+
+        public NumberClickListener(Button button) {
+            buttonClicked = button;
+        }
+
+        @Override
+        public void onClick(View v) {
+            if (buttonClicked.getTag().toString().contains("Timer") && startStopButton.isChecked()) {
+                countDownTimer.cancel();
+                timerValue = previousTimerValue;
+                startStopButton.toggle();
+            }
+
+            numberDialog(buttonClicked);
+        }
+    }
+
+    private void numberDialog(final Button buttonPressed) {
+        final Dialog dialog = new Dialog(context);
+        dialog.setContentView(R.layout.dialog_number_pad);
+        String titleString = "Set " + buttonPressed.getTag().toString() + " : " + buttonPressed.getText().toString();
+        dialog.setTitle(titleString);
+
+        final TextView numberView = (TextView) dialog.findViewById(R.id.numTextView);
+        final boolean[] firstNumber = {true};
+        numberView.setText(buttonPressed.getText().toString());
+
+        Button num0 = (Button) dialog.findViewById(R.id.num0);
+        Button num1 = (Button) dialog.findViewById(R.id.num1);
+        Button num2 = (Button) dialog.findViewById(R.id.num2);
+        Button num3 = (Button) dialog.findViewById(R.id.num3);
+        Button num4 = (Button) dialog.findViewById(R.id.num4);
+        Button num5 = (Button) dialog.findViewById(R.id.num5);
+        Button num6 = (Button) dialog.findViewById(R.id.num6);
+        Button num7 = (Button) dialog.findViewById(R.id.num7);
+        Button num8 = (Button) dialog.findViewById(R.id.num8);
+        Button num9 = (Button) dialog.findViewById(R.id.num9);
+
+        ArrayList<Button> buttons = new ArrayList<>();
+        buttons.add(num0);
+        buttons.add(num1);
+        buttons.add(num2);
+        buttons.add(num3);
+        buttons.add(num4);
+        buttons.add(num5);
+        buttons.add(num6);
+        buttons.add(num7);
+        buttons.add(num8);
+        buttons.add(num9);
+
+        for (final Button button: buttons) {
+            button.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (firstNumber[0]) {
+                        numberView.setText("");
+                        firstNumber[0] = false;
+                    }
+
+                    numberView.append(button.getText().toString());
+                }
+            });
+        }
+
+        Button delete = (Button) dialog.findViewById(R.id.deleteButton);
+        delete.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String text = numberView.getText().toString();
+
+                if (text.length()>0) {
+                    String newText = text.substring(0, text.length() - 1);
+                    numberView.setText(newText);
+                }
+            }
+        });
+
+        Button done = (Button) dialog.findViewById(R.id.doneButton);
+        done.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                String numberString = numberView.getText().toString();
+                String buttonTag = buttonPressed.getTag().toString();
+
+                if (numberString.length() < 1) {
+                    Toast.makeText(context, "No Input - Cancelled", Toast.LENGTH_SHORT).show();
+                    dialog.dismiss();
+                } else if (buttonTag.contains("Score")) {
+                    if (numberString.length() == 1 || numberString.length() == 2) {
+                        updateScore(buttonPressed, numberString);
+                        dialog.dismiss();
+                    } else if (numberString.length() > 2) {
+                        Toast.makeText(context, "Max Score is 99", Toast.LENGTH_SHORT).show();
+                    }
+                } else if (buttonTag.contains("eriod")){
+                    if (numberString.length() == 1) {
+                        updatePeriod(buttonPressed, numberString);
+                        dialog.dismiss();
+                    } else {
+                        Toast.makeText(context, "Max Period is 9", Toast.LENGTH_SHORT).show();
+                    }
+                } else if (buttonTag.contains("Timer")) {
+                    if (numberString.length() == 1) {
+                        buttonPressed.setText("0" + numberString);
+                        updateTimerValue();
+                        dialog.dismiss();
+                    } else if (numberString.length() == 2){
+                        Long numberValue = Long.parseLong(numberString);
+
+                        if (buttonTag.contains("Seconds") && numberValue > 60 ) {
+                            Toast.makeText(context, "Max Seconds is 59", Toast.LENGTH_SHORT).show();
+                        } else {
+                            buttonPressed.setText(numberString);
+                            updateTimerValue();
+                            dialog.dismiss();
+                        }
+                    } else if (numberString.length() > 2) {
+                        if (buttonTag.contains("Minutes")) {
+                            Toast.makeText(context, "Max Minutes is 99", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(context, "Max Seconds is 59", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                }
+            }
+        });
+
+        dialog.show();
+    }
+
+    /********************************** BLUETOOTH CONNECTION **********************************/
+
+    private void unlockScoreboard() {
+        if (isConnected) {
+            connectedThread.write("U" + macAddress + "1234");
+            isUnlocked = true;
+
+            connectionHandler.post(unlockSuccessRunnable);
+        }
+    }
+
+    private void connectionButtonPressed() {
+        initializeAdapter();
+        if (!isPaired) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(context);
+            builder.setMessage("Please pair with HC-06 Then Return");
+            builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    Intent intentBluetooth = new Intent();
+                    intentBluetooth.setAction(Settings.ACTION_BLUETOOTH_SETTINGS);
+                    startActivityForResult(intentBluetooth, 0);
+                    dialog.dismiss();
+                }
+            });
+            builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    dialog.cancel();
+                }
+            });
+            AlertDialog alertDialog = builder.create();
+
+            alertDialog.show();
+        } else if (!isConnected) {
+            Toast.makeText(context, "Connecting...", Toast.LENGTH_LONG).show();
+
+            initializeConnection();
+        } else {
+            Toast.makeText(context, "Already Connected", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void initializeAdapter() {
@@ -208,6 +419,27 @@ public class ScoringActivity extends ActionBarActivity {
         }
     }
 
+    Handler connectionHandler = new Handler();
+    Runnable connectionFailRunnable = new Runnable() {
+        public void run() {
+            Toast.makeText(context, "Connection Failed", Toast.LENGTH_LONG).show();
+        }
+    };
+
+    Runnable connectionSuccessRunnable = new Runnable() {
+        @Override
+        public void run() {
+            Toast.makeText(context, "Connected!", Toast.LENGTH_LONG).show();
+        }
+    };
+
+    Runnable unlockSuccessRunnable = new Runnable() {
+        @Override
+        public void run() {
+            Toast.makeText(context, "Unlocked Scoreboard", Toast.LENGTH_LONG).show();
+        }
+    };
+
     private void initializeConnection() {
         if (connectThread != null) {
             connectThread.cancel();
@@ -216,116 +448,6 @@ public class ScoringActivity extends ActionBarActivity {
 
         connectThread = new ConnectThread(bluetoothDevice);
         connectThread.start();
-    }
-
-//    private void initializeConnection() {
-//        UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
-//        try {
-//            btSocket = bluetoothDevice.createRfcommSocketToServiceRecord(uuid);
-//            btSocket.connect();
-//            btOutputStream = btSocket.getOutputStream();
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//
-//        if (btOutputStream != null) {
-//            isConnected = true;
-//            connectionButton.setEnabled(false);
-//            sendMessageToDuino("@");
-//        }
-//    }
-//
-//    private void sendMessageToDuino(String message) {
-//        byte[] bytes = message.getBytes();
-//
-//        try {
-//            btOutputStream.write(bytes);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//    }
-
-    private void updateCounterView() {
-        int seconds = (int) (timerValue/1000);
-        int minutes = seconds/60;
-        seconds = seconds % 60;
-
-        String timerString = "";
-
-        if (seconds < 10) {
-            timerValueView.setText("" + minutes + ":0" + seconds);
-            if (minutes < 10) {
-                timerString = "0" + minutes + "0" + seconds;
-            } else {
-                timerString = minutes + "0" + seconds;
-            }
-        } else {
-            timerValueView.setText("" + minutes + ":" + seconds);
-            if (minutes < 10) {
-                timerString = "0" + minutes + seconds;
-            } else {
-                timerString = "" + minutes + seconds;
-            }
-        }
-
-        if (isConnected) {
-            connectedThread.write("F" + timerString);
-        }
-    }
-
-    private void initializeCountDownTimer() {
-        updateCounterView();
-        countDownTimer = new CountDownTimer(timerValue, 500) {
-            @Override
-            public void onTick(long millisUntilFinished) {
-                timerValue = millisUntilFinished;
-
-                updateCounterView();
-            }
-
-            @Override
-            public void onFinish() {
-                timerValueView.setText("0:00");
-                startStopButton.toggle();
-            }
-        };
-    }
-
-    Handler connectionHandler = new Handler();
-    Runnable connectionFailRunnable = new Runnable() {
-        public void run() {
-            Toast.makeText(context, "Move Closer To Scoreboard", Toast.LENGTH_LONG).show();
-        }
-    };
-
-    Runnable connectionSuccessRunnable = new Runnable() {
-        @Override
-        public void run() {
-            Toast.makeText(context, "Success!!", Toast.LENGTH_LONG).show();
-            connectionButton.setEnabled(false);
-        }
-    };
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_scoring, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
-        }
-
-        return super.onOptionsItemSelected(item);
     }
 
     private class ConnectThread extends Thread {
@@ -376,11 +498,12 @@ public class ScoringActivity extends ActionBarActivity {
     public synchronized void manageConnectedSocket(BluetoothSocket socket, final BluetoothDevice device) {
         if (socket.isConnected()) {
             isConnected = true;
-
             connectionHandler.post(connectionSuccessRunnable);
 
             connectedThread = new ConnectedThread(socket);
             connectedThread.start();
+
+            unlockScoreboard();
         } else {
             connectionHandler.post(connectionFailRunnable);
         }
@@ -442,4 +565,31 @@ public class ScoringActivity extends ActionBarActivity {
             }
         }
     }
+
+    //    private void initializeConnection() {
+//        UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
+//        try {
+//            btSocket = bluetoothDevice.createRfcommSocketToServiceRecord(uuid);
+//            btSocket.connect();
+//            btOutputStream = btSocket.getOutputStream();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//
+//        if (btOutputStream != null) {
+//            isConnected = true;
+//            connectionButton.setEnabled(false);
+//            sendMessageToDuino("@");
+//        }
+//    }
+//
+//    private void sendMessageToDuino(String message) {
+//        byte[] bytes = message.getBytes();
+//
+//        try {
+//            btOutputStream.write(bytes);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//    }
 }

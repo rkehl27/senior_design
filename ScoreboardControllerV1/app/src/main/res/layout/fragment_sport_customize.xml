@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/White"
+            android:text="Sport Name:  "
+            android:textSize="40sp"/>
+
+        <EditText
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/sportName"
+            android:textColor="@color/White"
+            android:textSize="40sp"
+            android:hint="i.e. Basketball"
+            android:textColorHint="@color/DarkGray"
+            android:maxLines="1"
+            android:capitalize="words"
+            android:minLines="1"
+            android:lines="1"
+            android:inputType="text|textCapWords" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_marginTop="15sp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Num. Periods  "
+            android:textSize="40sp"
+            android:textColor="@color/White"/>
+
+        <Button
+            android:id="@+id/minusPeriod"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/White"
+            android:textSize="60sp"
+            android:text="-"/>
+
+        <TextView
+            android:id="@+id/numPeriods"
+            android:layout_width="50sp"
+            android:layout_height="wrap_content"
+            android:textColor="@color/White"
+            android:textSize="50sp"
+            android:gravity="center"
+            android:text="1"/>
+
+        <Button
+            android:id="@+id/plusPeriod"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/White"
+            android:textSize="60sp"
+            android:text="+"/>
+
+        </LinearLayout>
+
+    <LinearLayout
+        android:layout_marginTop="15sp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Time Per Period  "
+            android:textSize="40sp"
+            android:textColor="@color/White"/>
+
+        <Button
+            android:id="@+id/minutesPeriod"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/White"
+            android:textSize="60sp"
+            android:tag="Timer Minutes"
+            android:text="00"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/White"
+            android:textSize="60sp"
+            android:gravity="center"
+            android:text=":"/>
+
+        <Button
+            android:id="@+id/secondsPeriod"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:tag="Timer Seconds"
+            android:textColor="@color/White"
+            android:textSize="60sp"
+            android:text="00"/>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_marginTop="15sp"
+        android:layout_width="match_parent"
+        android:layout_height="fill_parent">
+
+        <Button
+            android:id="@+id/customize_done"
+            android:layout_marginTop="25sp"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:text="Done"
+            android:textSize="40sp"
+            android:textColor="@color/White"
+            android:layout_gravity="center"/>
+
+        </LinearLayout>
+
+
+</LinearLayout>

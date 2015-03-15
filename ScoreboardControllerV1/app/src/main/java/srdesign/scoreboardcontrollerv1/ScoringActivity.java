@@ -8,15 +8,20 @@ import android.bluetooth.BluetoothSocket;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Color;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
+import android.os.AsyncTask;
+import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
 import android.provider.Settings;
-import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.GridView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
@@ -28,44 +33,100 @@ import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
 
-public class ScoringActivity extends ActionBarActivity {
+public class ScoringActivity extends ActionBarActivity{
 
     final Context context = this;
-    private ToggleButton startStopButton;
+    Handler connectionHandler = new Handler();
+    Runnable connectionFailRunnable = new Runnable() {
+        public void run() {
+            Toast.makeText(context, "Connection Failed", Toast.LENGTH_SHORT).show();
+        }
+    };
+    Runnable connectionSuccessRunnable = new Runnable() {
+        @Override
+        public void run() {
+            Toast.makeText(context, "Connected!", Toast.LENGTH_SHORT).show();
+        }
+    };
+    Runnable unlockSuccessRunnable = new Runnable() {
+        @Override
+        public void run() {
+            Toast.makeText(context, "Unlocked Scoreboard", Toast.LENGTH_SHORT).show();
+        }
+    };
 
-    private TextView timerValueView;
+    Runnable connectionDroppedRunnable = new Runnable() {
+        @Override
+        public void run() {
+            Toast.makeText(context, "Connection Dropped", Toast.LENGTH_SHORT).show();
+        }
+    };
 
+    Runnable notConnectedRunnable = new Runnable() {
+        @Override
+        public void run() {
+            Toast.makeText(context, "No Connection", Toast.LENGTH_SHORT).show();
+        }
+    };    private ToggleButton startStopButton;
+//    private TextView timerValueView;
     private Button minutesButton;
     private Button secondsButton;
-
     private long previousTimerValue = 00;
     private long timerValue = 00;
-
-    private CountDownTimer countDownTimer;
-
+    private CountDownTimer scoreboardTimer;
     private boolean isPaired = false;
     private boolean isConnected = false;
     private boolean isUnlocked = false;
-
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothDevice bluetoothDevice;
-
     private ConnectThread connectThread;
     private ConnectedThread connectedThread;
-
     private String macAddress = "112233445566";
+    private boolean hasError = false;
+    private String homeScoreColor = "1";
+    private String awayScoreColor = "1";
+    private String buzzerEnableString = "0";
+    private boolean isCounting = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scoring);
 
-//        timerValueView = (TextView) findViewById(R.id.timerValue);
-//        timerValueView.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//            }
-//        });
+        WifiManager wifiManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+        WifiInfo wInfo = wifiManager.getConnectionInfo();
+        String macAddress1 = wInfo.getMacAddress();
+        if (macAddress1 != null) {
+            macAddress = macAddress1.replaceAll(":", "");
+        } else {
+            String uuid = UUID.randomUUID().toString();
+            uuid = uuid.replace("-", "");
+            macAddress = uuid.substring(0, 12);
+        }
+
+        int homeRadio = 0;
+        int awayRadio = 0;
+        boolean buzzerEnable = false;
+        Sport selectedSport = null;
+
+        Bundle extras = getIntent().getExtras();
+        if (extras != null) {
+            homeRadio = extras.getInt("homeRadio");
+            awayRadio = extras.getInt("awayRadio");
+            buzzerEnable = extras.getBoolean("buzzerEnable");
+            selectedSport = (Sport) extras.getParcelable("sport");
+        }
+
+        if (buzzerEnable) {
+            buzzerEnableString = "1";
+        } else {
+            buzzerEnableString = "0";
+        }
+
+        setTitle(selectedSport.name);
+
+        timerValue = selectedSport.minutesPerPeriod * 60 * 1000;
+        previousTimerValue = timerValue;
 
         minutesButton = (Button) findViewById(R.id.minutesButton);
         secondsButton = (Button) findViewById(R.id.secondsButton);
@@ -80,10 +141,13 @@ public class ScoringActivity extends ActionBarActivity {
                 if (startStopButton.isChecked()) {
                     //Timer is running
                     initializeCountDownTimer();
-                    countDownTimer.start();
+                    //countDownTimer.start();
+                    scoreboardTimer.start();
+                    isCounting = true;
                 } else {
-                    //Timer is paused
-                    countDownTimer.cancel();
+                    //countDownTimer.cancel();
+                    isCounting = false;
+                    scoreboardTimer.cancel();
                 }
             }
         });
@@ -92,24 +156,65 @@ public class ScoringActivity extends ActionBarActivity {
         resetButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (startStopButton.isChecked()){
+                if (startStopButton.isChecked()) {
                     //Timer is Running
                     startStopButton.toggle();
                 }
-                countDownTimer.cancel();
-                timerValue = previousTimerValue;
+                //countDownTimer.cancel();
+                isCounting = false;
+                scoreboardTimer.cancel();
+                timerValue = previousTimerValue + 100;
                 initializeCountDownTimer();
+                try {
+                    Thread.sleep(50, 00);
+                    updateTimerValue();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             }
         });
 
         final Button homeScoreButton = (Button) findViewById(R.id.homeScoreButton);
+        if (homeRadio == 0) {
+            homeScoreButton.setTextColor(Color.RED);
+            homeScoreColor = "1";
+        } else {
+            homeScoreButton.setTextColor(Color.BLUE);
+            homeScoreColor = "0";
+        }
         homeScoreButton.setOnClickListener(new NumberClickListener(homeScoreButton));
 
         final Button awayScoreButton = (Button) findViewById(R.id.awayScoreButton);
+        if (awayRadio == 0) {
+            awayScoreButton.setTextColor(Color.RED);
+            awayScoreColor = "1";
+        } else {
+            awayScoreButton.setTextColor(Color.BLUE);
+            awayScoreColor = "0";
+        }
         awayScoreButton.setOnClickListener(new NumberClickListener(awayScoreButton));
 
         final Button periodButton = (Button) findViewById(R.id.periodButton);
         periodButton.setOnClickListener(new NumberClickListener(periodButton));
+
+//        GridView scoringView = (GridView) findViewById(R.id.scoringGridView);
+//        ArrayList<Button> scoreButtons = new ArrayList<>();
+//
+//        String[] scoreParts = selectedSport.scoreString.split(",");
+//
+//        for (String part : scoreParts) {
+//            Button homePosScore = new Button(context);
+//            homePosScore.setText("+ " + part);
+//            homePosScore.setTextColor(Color.WHITE);
+//            Button homeNegScore = new Button(context);
+//            homeNegScore.setText("- " + part);
+//            homeNegScore.setTextColor(Color.WHITE);
+//            Button awayPosScore = new Button(context);
+//            awayPosScore.setText("+ " + part);
+//            Button awayNegScore = new Button(context);
+//            awayNegScore.setText("- " + part);
+//        }
+
 
         updateCounterView();
     }
@@ -126,7 +231,6 @@ public class ScoringActivity extends ActionBarActivity {
         }
     }
 
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -138,11 +242,30 @@ public class ScoringActivity extends ActionBarActivity {
         }
     }
 
+    private void syncToScoreboard() {
+        updateTimerValue();
+
+        try {
+            Thread.sleep(50, 0);
+
+            if (isConnected && isUnlocked) {
+                connectedThread.write("V" + macAddress + "1" + homeScoreColor);
+                Thread.sleep(50, 0);
+                connectedThread.write("W" + macAddress + "1" + awayScoreColor);
+                Thread.sleep(50, 0);
+                connectedThread.write("b" + macAddress + "1" + buzzerEnableString);
+
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
     private void updateTimerValue() {
         long minutesValue = Long.parseLong(minutesButton.getText().toString());
         long secondsValue = Long.parseLong(secondsButton.getText().toString());
 
-        timerValue = (minutesValue*60 + secondsValue)*1000;
+        timerValue = (minutesValue * 60 + secondsValue) * 1000;
         previousTimerValue = timerValue;
 
         String timerString = minutesButton.getText().toString() + secondsButton.getText().toString();
@@ -155,11 +278,14 @@ public class ScoringActivity extends ActionBarActivity {
     }
 
     private void updateCounterView() {
-        int seconds = (int) (timerValue/1000);
-        int minutes = seconds/60;
-        seconds = seconds % 60;
+        long counterVal = timerValue;
 
-        String timerString = "";
+        if (isCounting) {
+            counterVal = counterVal - 100;
+        }
+        int seconds = (int) (counterVal / 1000);
+        int minutes = seconds / 60;
+        seconds = seconds % 60;
 
         if (seconds < 10 && minutes < 10) {
             minutesButton.setText("0" + minutes);
@@ -174,25 +300,23 @@ public class ScoringActivity extends ActionBarActivity {
             minutesButton.setText("" + minutes);
             secondsButton.setText("" + seconds);
         }
-
-        timerString = minutesButton.getText().toString() + secondsButton.getText().toString();
-
-//        if (isConnected && isUnlocked) {
-//            connectedThread.write("F" + macAddress + "4" + timerString);
-//        }
     }
 
     private void updateScore(Button scoreButton, String scoreValue) {
         scoreButton.setText(scoreValue);
 
+        if (scoreValue.length() == 1) {
+            scoreValue = "0" + scoreValue;
+        }
+
         if (isConnected && isUnlocked) {
             if (scoreButton.getTag().toString().contains("Home")) {
-                connectedThread.write("G" + macAddress + "30" + scoreValue);
-            } else if(scoreButton.getTag().toString().contains("Away")) {
-                connectedThread.write("H" + macAddress + "30" + scoreValue);
+                connectedThread.write("G" + macAddress + "2" + scoreValue);
+            } else if (scoreButton.getTag().toString().contains("Away")) {
+                connectedThread.write("H" + macAddress + "2" + scoreValue);
             }
         } else {
-            Toast.makeText(context, "Not Connected", Toast.LENGTH_SHORT).show();
+            connectionHandler.post(notConnectedRunnable);
         }
     }
 
@@ -202,23 +326,26 @@ public class ScoringActivity extends ActionBarActivity {
         if (isConnected && isUnlocked) {
             connectedThread.write("P" + macAddress + "1" + periodValue);
         } else {
-            Toast.makeText(context, "Not Connected", Toast.LENGTH_SHORT).show();
+            connectionHandler.post(notConnectedRunnable);
         }
     }
 
     private void initializeCountDownTimer() {
         updateCounterView();
-        countDownTimer = new CountDownTimer(timerValue, 500) {
+        scoreboardTimer = new CountDownTimer(timerValue + 100, 999) {
             @Override
             public void onTick(long millisUntilFinished) {
-                timerValue = millisUntilFinished;
-
+                if (isConnected && isUnlocked) {
+                    connectedThread.write("I" + macAddress + "0");
+                }
+                timerValue = millisUntilFinished - 100;
                 updateCounterView();
             }
 
             @Override
             public void onFinish() {
                 startStopButton.toggle();
+                isCounting = false;
             }
         };
     }
@@ -227,6 +354,7 @@ public class ScoringActivity extends ActionBarActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_scoring, menu);
+
         return true;
     }
 
@@ -239,154 +367,28 @@ public class ScoringActivity extends ActionBarActivity {
 
         if (id == R.id.action_connect) {
             connectionButtonPressed();
+        } else if (id == R.id.action_release) {
+            releaseScoreboard();
         }
 
         return super.onOptionsItemSelected(item);
     }
 
-    /********************************** DIALOG **********************************/
+    /**
+     * ******************************* BLUETOOTH CONNECTION *********************************
+     */
 
-    private class NumberClickListener implements View.OnClickListener {
-        Button buttonClicked = null;
+    private void releaseScoreboard() {
 
-        public NumberClickListener(Button button) {
-            buttonClicked = button;
-        }
-
-        @Override
-        public void onClick(View v) {
-            if (buttonClicked.getTag().toString().contains("Timer") && startStopButton.isChecked()) {
-                countDownTimer.cancel();
-                timerValue = previousTimerValue;
-                startStopButton.toggle();
-            }
-
-            numberDialog(buttonClicked);
-        }
     }
-
-    private void numberDialog(final Button buttonPressed) {
-        final Dialog dialog = new Dialog(context);
-        dialog.setContentView(R.layout.dialog_number_pad);
-        String titleString = "Set " + buttonPressed.getTag().toString() + " : " + buttonPressed.getText().toString();
-        dialog.setTitle(titleString);
-
-        final TextView numberView = (TextView) dialog.findViewById(R.id.numTextView);
-        final boolean[] firstNumber = {true};
-        numberView.setText(buttonPressed.getText().toString());
-
-        Button num0 = (Button) dialog.findViewById(R.id.num0);
-        Button num1 = (Button) dialog.findViewById(R.id.num1);
-        Button num2 = (Button) dialog.findViewById(R.id.num2);
-        Button num3 = (Button) dialog.findViewById(R.id.num3);
-        Button num4 = (Button) dialog.findViewById(R.id.num4);
-        Button num5 = (Button) dialog.findViewById(R.id.num5);
-        Button num6 = (Button) dialog.findViewById(R.id.num6);
-        Button num7 = (Button) dialog.findViewById(R.id.num7);
-        Button num8 = (Button) dialog.findViewById(R.id.num8);
-        Button num9 = (Button) dialog.findViewById(R.id.num9);
-
-        ArrayList<Button> buttons = new ArrayList<>();
-        buttons.add(num0);
-        buttons.add(num1);
-        buttons.add(num2);
-        buttons.add(num3);
-        buttons.add(num4);
-        buttons.add(num5);
-        buttons.add(num6);
-        buttons.add(num7);
-        buttons.add(num8);
-        buttons.add(num9);
-
-        for (final Button button: buttons) {
-            button.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (firstNumber[0]) {
-                        numberView.setText("");
-                        firstNumber[0] = false;
-                    }
-
-                    numberView.append(button.getText().toString());
-                }
-            });
-        }
-
-        Button delete = (Button) dialog.findViewById(R.id.deleteButton);
-        delete.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                String text = numberView.getText().toString();
-
-                if (text.length()>0) {
-                    String newText = text.substring(0, text.length() - 1);
-                    numberView.setText(newText);
-                }
-            }
-        });
-
-        Button done = (Button) dialog.findViewById(R.id.doneButton);
-        done.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-
-                String numberString = numberView.getText().toString();
-                String buttonTag = buttonPressed.getTag().toString();
-
-                if (numberString.length() < 1) {
-                    Toast.makeText(context, "No Input - Cancelled", Toast.LENGTH_SHORT).show();
-                    dialog.dismiss();
-                } else if (buttonTag.contains("Score")) {
-                    if (numberString.length() == 1 || numberString.length() == 2) {
-                        updateScore(buttonPressed, numberString);
-                        dialog.dismiss();
-                    } else if (numberString.length() > 2) {
-                        Toast.makeText(context, "Max Score is 99", Toast.LENGTH_SHORT).show();
-                    }
-                } else if (buttonTag.contains("eriod")){
-                    if (numberString.length() == 1) {
-                        updatePeriod(buttonPressed, numberString);
-                        dialog.dismiss();
-                    } else {
-                        Toast.makeText(context, "Max Period is 9", Toast.LENGTH_SHORT).show();
-                    }
-                } else if (buttonTag.contains("Timer")) {
-                    if (numberString.length() == 1) {
-                        buttonPressed.setText("0" + numberString);
-                        updateTimerValue();
-                        dialog.dismiss();
-                    } else if (numberString.length() == 2){
-                        Long numberValue = Long.parseLong(numberString);
-
-                        if (buttonTag.contains("Seconds") && numberValue > 60 ) {
-                            Toast.makeText(context, "Max Seconds is 59", Toast.LENGTH_SHORT).show();
-                        } else {
-                            buttonPressed.setText(numberString);
-                            updateTimerValue();
-                            dialog.dismiss();
-                        }
-                    } else if (numberString.length() > 2) {
-                        if (buttonTag.contains("Minutes")) {
-                            Toast.makeText(context, "Max Minutes is 99", Toast.LENGTH_SHORT).show();
-                        } else {
-                            Toast.makeText(context, "Max Seconds is 59", Toast.LENGTH_SHORT).show();
-                        }
-                    }
-                }
-            }
-        });
-
-        dialog.show();
-    }
-
-    /********************************** BLUETOOTH CONNECTION **********************************/
 
     private void unlockScoreboard() {
         if (isConnected) {
             connectedThread.write("U" + macAddress + "4" + "1234");
-            isUnlocked = true;
-
             connectionHandler.post(unlockSuccessRunnable);
+            isUnlocked = true;
+        } else {
+            connectionHandler.post(notConnectedRunnable);
         }
     }
 
@@ -423,6 +425,8 @@ public class ScoringActivity extends ActionBarActivity {
     }
 
     private void initializeAdapter() {
+        bluetoothAdapter = null;
+        bluetoothDevice = null;
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
         if (!bluetoothAdapter.isEnabled()) {
@@ -430,39 +434,20 @@ public class ScoringActivity extends ActionBarActivity {
             startActivityForResult(enableBluetooth, 0);
         }
 
-        Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
+        if (bluetoothAdapter != null) {
+            Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
 
-        if (pairedDevices.size() > 0) {
-            for (BluetoothDevice device : pairedDevices) {
-                if (device.getName().equals("HC-06")) {
-                    bluetoothDevice = device;
-                    isPaired = true;
-                    break;
+            if (pairedDevices.size() > 0) {
+                for (BluetoothDevice device : pairedDevices) {
+                    if (device.getName().equals("HC-06")) {
+                        bluetoothDevice = device;
+                        isPaired = true;
+                        break;
+                    }
                 }
             }
         }
     }
-
-    Handler connectionHandler = new Handler();
-    Runnable connectionFailRunnable = new Runnable() {
-        public void run() {
-            Toast.makeText(context, "Connection Failed", Toast.LENGTH_LONG).show();
-        }
-    };
-
-    Runnable connectionSuccessRunnable = new Runnable() {
-        @Override
-        public void run() {
-            Toast.makeText(context, "Connected!", Toast.LENGTH_LONG).show();
-        }
-    };
-
-    Runnable unlockSuccessRunnable = new Runnable() {
-        @Override
-        public void run() {
-            Toast.makeText(context, "Unlocked Scoreboard", Toast.LENGTH_LONG).show();
-        }
-    };
 
     private void initializeConnection() {
         if (connectThread != null) {
@@ -472,6 +457,46 @@ public class ScoringActivity extends ActionBarActivity {
 
         connectThread = new ConnectThread(bluetoothDevice);
         connectThread.start();
+    }
+
+    public synchronized void manageConnectedSocket(BluetoothSocket socket, final BluetoothDevice device) {
+        if (socket.isConnected()) {
+            connectionHandler.post(connectionSuccessRunnable);
+
+            connectedThread = null;
+            connectedThread = new ConnectedThread(socket);
+            connectedThread.start();
+
+            new UnlockAndSyncToScoreboard().execute();
+
+        } else {
+            connectionHandler.post(connectionFailRunnable);
+        }
+    }
+
+    private class UnlockAndSyncToScoreboard extends AsyncTask<Void, Void, Void> {
+
+        @Override
+        protected Void doInBackground(Void... params) {
+            try {
+                Thread.sleep(500, 0);
+                unlockScoreboard();
+
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            try {
+                Thread.sleep(50, 0);
+                syncToScoreboard();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     private class ConnectThread extends Thread {
@@ -519,20 +544,6 @@ public class ScoringActivity extends ActionBarActivity {
         }
     }
 
-    public synchronized void manageConnectedSocket(BluetoothSocket socket, final BluetoothDevice device) {
-        if (socket.isConnected()) {
-            isConnected = true;
-            connectionHandler.post(connectionSuccessRunnable);
-
-            connectedThread = new ConnectedThread(socket);
-            connectedThread.start();
-
-            unlockScoreboard();
-        } else {
-            connectionHandler.post(connectionFailRunnable);
-        }
-    }
-
     private class ConnectedThread extends Thread {
         private final BluetoothSocket btSocket;
         private final InputStream inputStream;
@@ -552,6 +563,7 @@ public class ScoringActivity extends ActionBarActivity {
 
             inputStream = tempIn;
             outputStream = tempOut;
+            isConnected = true;
         }
 
         @Override
@@ -564,7 +576,7 @@ public class ScoringActivity extends ActionBarActivity {
                     bytes = inputStream.read(buffer);
 
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    cancel();
                 }
 
                 //USE HANDLER TO READ MESSAGES
@@ -577,43 +589,161 @@ public class ScoringActivity extends ActionBarActivity {
             try {
                 outputStream.write(bytes);
             } catch (IOException e) {
-                e.printStackTrace();
+                cancel();
             }
         }
 
         public void cancel() {
+            if (!hasError) {
+                hasError = true;
+                connectionHandler.post(connectionDroppedRunnable);
+            }
             try {
                 btSocket.close();
             } catch (IOException e) {
-                e.printStackTrace();
             }
+
+            connectedThread = null;
+            isConnected = false;
+            isUnlocked = false;
+            isPaired = false;
         }
     }
 
-    //    private void initializeConnection() {
-//        UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
-//        try {
-//            btSocket = bluetoothDevice.createRfcommSocketToServiceRecord(uuid);
-//            btSocket.connect();
-//            btOutputStream = btSocket.getOutputStream();
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//
-//        if (btOutputStream != null) {
-//            isConnected = true;
-//            connectionButton.setEnabled(false);
-//            sendMessageToDuino("@");
-//        }
-//    }
-//
-//    private void sendMessageToDuino(String message) {
-//        byte[] bytes = message.getBytes();
-//
-//        try {
-//            btOutputStream.write(bytes);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//    }
+    /**
+     * ******************************* DIALOG *********************************
+     */
+
+    private void numberDialog(final Button buttonPressed) {
+        final Dialog dialog = new Dialog(context);
+        dialog.setContentView(R.layout.dialog_number_pad);
+        String titleString = "Set " + buttonPressed.getTag().toString() + " : " + buttonPressed.getText().toString();
+        dialog.setTitle(titleString);
+
+        final TextView numberView = (TextView) dialog.findViewById(R.id.numTextView);
+        final boolean[] firstNumber = {true};
+        numberView.setText(buttonPressed.getText().toString());
+
+        Button num0 = (Button) dialog.findViewById(R.id.num0);
+        Button num1 = (Button) dialog.findViewById(R.id.num1);
+        Button num2 = (Button) dialog.findViewById(R.id.num2);
+        Button num3 = (Button) dialog.findViewById(R.id.num3);
+        Button num4 = (Button) dialog.findViewById(R.id.num4);
+        Button num5 = (Button) dialog.findViewById(R.id.num5);
+        Button num6 = (Button) dialog.findViewById(R.id.num6);
+        Button num7 = (Button) dialog.findViewById(R.id.num7);
+        Button num8 = (Button) dialog.findViewById(R.id.num8);
+        Button num9 = (Button) dialog.findViewById(R.id.num9);
+
+        ArrayList<Button> buttons = new ArrayList<>();
+        buttons.add(num0);
+        buttons.add(num1);
+        buttons.add(num2);
+        buttons.add(num3);
+        buttons.add(num4);
+        buttons.add(num5);
+        buttons.add(num6);
+        buttons.add(num7);
+        buttons.add(num8);
+        buttons.add(num9);
+
+        for (final Button button : buttons) {
+            button.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (firstNumber[0]) {
+                        numberView.setText("");
+                        firstNumber[0] = false;
+                    }
+
+                    numberView.append(button.getText().toString());
+                }
+            });
+        }
+
+        Button delete = (Button) dialog.findViewById(R.id.deleteButton);
+        delete.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String text = numberView.getText().toString();
+
+                if (text.length() > 0) {
+                    String newText = text.substring(0, text.length() - 1);
+                    numberView.setText(newText);
+                }
+            }
+        });
+
+        Button done = (Button) dialog.findViewById(R.id.doneButton);
+        done.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                String numberString = numberView.getText().toString();
+                String buttonTag = buttonPressed.getTag().toString();
+
+                if (numberString.length() < 1) {
+                    Toast.makeText(context, "No Input - Cancelled", Toast.LENGTH_SHORT).show();
+                    dialog.dismiss();
+                } else if (buttonTag.contains("Score")) {
+                    if (numberString.length() == 1 || numberString.length() == 2) {
+                        updateScore(buttonPressed, numberString);
+                        dialog.dismiss();
+                    } else if (numberString.length() > 2) {
+                        Toast.makeText(context, "Max Score is 99", Toast.LENGTH_SHORT).show();
+                    }
+                } else if (buttonTag.contains("eriod")) {
+                    if (numberString.length() == 1) {
+                        updatePeriod(buttonPressed, numberString);
+                        dialog.dismiss();
+                    } else {
+                        Toast.makeText(context, "Max Period is 9", Toast.LENGTH_SHORT).show();
+                    }
+                } else if (buttonTag.contains("Timer")) {
+                    if (numberString.length() == 1) {
+                        buttonPressed.setText("0" + numberString);
+                        updateTimerValue();
+                        dialog.dismiss();
+                    } else if (numberString.length() == 2) {
+                        Long numberValue = Long.parseLong(numberString);
+
+                        if (buttonTag.contains("Seconds") && numberValue > 60) {
+                            Toast.makeText(context, "Max Seconds is 59", Toast.LENGTH_SHORT).show();
+                        } else {
+                            buttonPressed.setText(numberString);
+                            updateTimerValue();
+                            dialog.dismiss();
+                        }
+                    } else if (numberString.length() > 2) {
+                        if (buttonTag.contains("Minutes")) {
+                            Toast.makeText(context, "Max Minutes is 99", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(context, "Max Seconds is 59", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                }
+            }
+        });
+
+        dialog.show();
+    }
+
+    private class NumberClickListener implements View.OnClickListener {
+        Button buttonClicked = null;
+
+        public NumberClickListener(Button button) {
+            buttonClicked = button;
+        }
+
+        @Override
+        public void onClick(View v) {
+            if (buttonClicked.getTag().toString().contains("Timer") && startStopButton.isChecked()) {
+                scoreboardTimer.cancel();
+                timerValue = previousTimerValue;
+                startStopButton.toggle();
+            }
+
+            numberDialog(buttonClicked);
+        }
+    }
 }

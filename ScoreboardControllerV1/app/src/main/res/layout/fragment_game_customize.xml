@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/awayTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/homeRadioGroup"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="10dp"
+        android:text="Away"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:textColor="@color/White"
+        android:textSize="40dp" />
+
+    <RadioGroup
+        android:id="@+id/homeRadioGroup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/homeTextView"
+        android:layout_centerHorizontal="true"
+        android:checkedButton="@+id/homeRedRadioButton"
+        android:gravity="right">
+
+        <RadioButton
+            android:id="@+id/homeRedRadioButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Red Numbers"
+            android:textColor="@color/White"
+            android:textSize="30dp" />
+
+        <RadioButton
+            android:id="@+id/homeBlueRadioButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Blue Numbers"
+            android:textColor="@color/White"
+            android:textSize="30dp" />
+    </RadioGroup>
+
+    <RadioGroup
+        android:id="@+id/awayRadioGroup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/awayTextView"
+        android:layout_centerHorizontal="true"
+        android:checkedButton="@+id/awayBlueRadioButton"
+        android:gravity="right">
+
+        <RadioButton
+            android:id="@+id/awayRedRadioButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Red Numbers"
+            android:textColor="@color/White"
+            android:buttonTint="@color/White"
+            android:textSize="30dp" />
+
+        <RadioButton
+            android:id="@+id/awayBlueRadioButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Blue Numbers"
+            android:textColor="@color/White"
+            android:textSize="30dp" />
+    </RadioGroup>
+
+    <TextView
+        android:id="@+id/homeTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/awayTextView"
+        android:layout_alignParentTop="true"
+        android:layout_alignStart="@+id/awayTextView"
+        android:layout_gravity="center_horizontal"
+        android:text="Home"
+        android:textColor="@color/White"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:textSize="40dp" />
+
+    <TextView
+        android:id="@+id/buzzerTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/awayRadioGroup"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="10dp"
+        android:text="Buzzer"
+        android:textColor="@color/White"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:textSize="40dp" />
+
+    <TextView
+        android:id="@+id/buzzerDescription"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/buzzerTextView"
+        android:layout_centerHorizontal="true"
+        android:textColor="@color/White"
+        android:text="Should the buzzer sound\nat the end of each period?"
+        android:textAlignment="center"
+        android:textSize="20dp" />
+
+    <Switch
+        android:id="@+id/switch1"
+        android:layout_width="wrap_content"
+        android:layout_height="100dp"
+        android:layout_below="@+id/buzzerDescription"
+        android:layout_centerHorizontal="true"
+        android:textOff="No"
+        android:textOn="Yes"/>
+
+    <Button
+        android:id="@+id/gameStartButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="40dp"
+        android:nestedScrollingEnabled="false"
+        android:onClick="onClickMethod"
+        android:text="Start Game"
+        android:textColor="@color/White"
+        android:textSize="50dp" />
+
+
+</RelativeLayout>

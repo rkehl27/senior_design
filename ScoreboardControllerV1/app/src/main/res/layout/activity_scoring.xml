@@ -1,8 +1,9 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical" android:layout_width="match_parent"
+    android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/Black"
-    android:gravity="center_horizontal">
+    android:gravity="center_horizontal"
+    android:orientation="vertical">
 
     <LinearLayout
         android:layout_width="wrap_content"
@@ -10,143 +11,141 @@
         android:orientation="horizontal">
 
         <Button
+            android:id="@+id/minutesButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:id="@+id/minutesButton"
-            android:textSize="90sp"
-            android:textColor="@color/Red"
             android:tag="Timer Minutes"
-            android:text="00"/>
+            android:textColor="@color/Red"
+            android:textSize="90sp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="90sp"
             android:text=":"
-            android:textColor="@color/Red"/>
+            android:textColor="@color/Red"
+            android:textSize="90sp" />
 
         <Button
+            android:id="@+id/secondsButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:id="@+id/secondsButton"
-            android:textSize="90sp"
-            android:textColor="@color/Red"
             android:tag="Timer Seconds"
-            android:text="00"/>
+            android:text="00"
+            android:textColor="@color/Red"
+            android:textSize="90sp" />
 
 
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/timerButtonView"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:id="@+id/timerButtonView">
+        android:layout_height="wrap_content">
 
         <ToggleButton
             android:id="@+id/startStopButton"
             android:layout_width="120sp"
             android:layout_height="60sp"
-            android:textSize="30sp"
+            android:textColor="@color/WhiteSmoke"
             android:textOff="Start"
             android:textOn="Stop"
-            android:textColor="@color/WhiteSmoke"/>
+            android:textSize="30sp" />
 
         <Button
             android:id="@+id/resetButton"
             android:layout_width="120sp"
             android:layout_height="60sp"
-            android:textSize="30sp"
             android:text="Reset"
-            android:textColor="@color/WhiteSmoke"/>
+            android:textColor="@color/WhiteSmoke"
+            android:textSize="30sp" />
 
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/scoreView"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:id="@+id/scoreView"
         android:layout_marginTop="10dp">
 
         <LinearLayout
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="wrap_content"
             android:id="@+id/homeScoreView"
-            android:orientation="vertical"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10sp"
+            android:layout_weight="1"
             android:gravity="center"
-            android:layout_marginTop="10sp">
+            android:orientation="vertical">
 
             <TextView
+                android:id="@+id/homeLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceLarge"
                 android:text="Home"
-                android:id="@+id/homeLabel"
-                android:textColor="@color/White"/>
+                android:textAppearance="?android:attr/textAppearanceLarge"
+                android:textColor="@color/White" />
 
             <Button
+                android:id="@+id/homeScoreButton"
                 android:layout_width="100sp"
                 android:layout_height="wrap_content"
-                android:textSize="60sp"
-                android:text="00"
-                android:id="@+id/homeScoreButton"
                 android:tag="Home Score"
+                android:text="00"
                 android:textColor="@color/RoyalBlue"
-                />
+                android:textSize="60sp" />
         </LinearLayout>
 
         <LinearLayout
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="wrap_content"
             android:id="@+id/periodView"
-            android:orientation="vertical"
-            android:gravity="center">
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
 
             <Button
+                android:id="@+id/periodButton"
                 android:layout_width="60sp"
                 android:layout_height="wrap_content"
-                android:text="1"
-                android:textSize="40sp"
-                android:id="@+id/periodButton"
                 android:tag="Period"
-                android:textColor="@color/White"/>
+                android:text="1"
+                android:textColor="@color/White"
+                android:textSize="40sp" />
 
             <TextView
+                android:id="@+id/periodLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceLarge"
                 android:text="Period"
-                android:id="@+id/periodLabel"
-                android:textColor="@color/White"/>
+                android:textAppearance="?android:attr/textAppearanceLarge"
+                android:textColor="@color/White" />
 
         </LinearLayout>
 
         <LinearLayout
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="wrap_content"
             android:id="@+id/awayScoreView"
-            android:orientation="vertical"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10sp"
+            android:layout_weight="1"
             android:gravity="center"
-            android:layout_marginTop="10sp">
+            android:orientation="vertical">
 
             <TextView
+                android:id="@+id/awayLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceLarge"
                 android:text="Away"
-                android:id="@+id/awayLabel"
-                android:textColor="@color/White"/>
+                android:textAppearance="?android:attr/textAppearanceLarge"
+                android:textColor="@color/White" />
 
             <Button
+                android:id="@+id/awayScoreButton"
                 android:layout_width="100sp"
                 android:layout_height="wrap_content"
-                android:text="00"
-                android:textSize="60sp"
-                android:id="@+id/awayScoreButton"
                 android:tag="Away Score"
-                android:textColor="@color/MediumPurple"/>
+                android:text="00"
+                android:textColor="@color/MediumPurple"
+                android:textSize="60sp" />
 
         </LinearLayout>
 
@@ -156,15 +155,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <!--<Button-->
-            <!--android:layout_width="100sp"-->
-            <!--android:layout_height="wrap_content"-->
-            <!--android:text="00"-->
-            <!--android:textSize="60sp"-->
-            <!--android:id="@+id/awayScoreButton"-->
-            <!--android:tag="Away Score"-->
-            <!--android:textColor="@color/MediumPurple"/>-->
+        <GridView
+            android:id="@+id/scoringGridView"
+            android:layout_width="match_parent"
+            android:layout_height="fill_parent"
+            android:numColumns="4">
+            </GridView>
 
-        </LinearLayout>
+    </LinearLayout>
 
 </LinearLayout>

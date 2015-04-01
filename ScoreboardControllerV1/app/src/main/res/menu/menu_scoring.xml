@@ -1,7 +1,14 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools" tools:context=".ScoringActivity">
-    <item android:id="@+id/action_connect"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context=".ScoringActivity">
+    <item
+        android:id="@+id/action_connect"
         android:title="Bluetooth Connect"
-        app:showAsAction="always"/>
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/action_release"
+        android:visible="false"
+        android:title="Release"
+        app:showAsAction="always" />
 </menu>

@@ -10,11 +10,11 @@
         android:layout_height="wrap_content"
         android:layout_below="@+id/homeRadioGroup"
         android:layout_centerHorizontal="true"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="10sp"
         android:text="Away"
         android:textAppearance="?android:attr/textAppearanceLarge"
         android:textColor="@color/White"
-        android:textSize="40dp" />
+        android:textSize="40sp" />
 
     <RadioGroup
         android:id="@+id/homeRadioGroup"
@@ -31,7 +31,7 @@
             android:layout_height="wrap_content"
             android:text="Red Numbers"
             android:textColor="@color/White"
-            android:textSize="30dp" />
+            android:textSize="30sp" />
 
         <RadioButton
             android:id="@+id/homeBlueRadioButton"
@@ -39,7 +39,7 @@
             android:layout_height="wrap_content"
             android:text="Blue Numbers"
             android:textColor="@color/White"
-            android:textSize="30dp" />
+            android:textSize="30sp" />
     </RadioGroup>
 
     <RadioGroup
@@ -55,10 +55,10 @@
             android:id="@+id/awayRedRadioButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:buttonTint="@color/White"
             android:text="Red Numbers"
             android:textColor="@color/White"
-            android:buttonTint="@color/White"
-            android:textSize="30dp" />
+            android:textSize="30sp" />
 
         <RadioButton
             android:id="@+id/awayBlueRadioButton"
@@ -66,7 +66,7 @@
             android:layout_height="wrap_content"
             android:text="Blue Numbers"
             android:textColor="@color/White"
-            android:textSize="30dp" />
+            android:textSize="30sp" />
     </RadioGroup>
 
     <TextView
@@ -78,9 +78,9 @@
         android:layout_alignStart="@+id/awayTextView"
         android:layout_gravity="center_horizontal"
         android:text="Home"
-        android:textColor="@color/White"
         android:textAppearance="?android:attr/textAppearanceLarge"
-        android:textSize="40dp" />
+        android:textColor="@color/White"
+        android:textSize="40sp" />
 
     <TextView
         android:id="@+id/buzzerTextView"
@@ -88,11 +88,11 @@
         android:layout_height="wrap_content"
         android:layout_below="@+id/awayRadioGroup"
         android:layout_centerHorizontal="true"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="10sp"
         android:text="Buzzer"
-        android:textColor="@color/White"
         android:textAppearance="?android:attr/textAppearanceLarge"
-        android:textSize="40dp" />
+        android:textColor="@color/White"
+        android:textSize="40sp" />
 
     <TextView
         android:id="@+id/buzzerDescription"
@@ -100,19 +100,19 @@
         android:layout_height="wrap_content"
         android:layout_below="@+id/buzzerTextView"
         android:layout_centerHorizontal="true"
-        android:textColor="@color/White"
         android:text="Should the buzzer sound\nat the end of each period?"
         android:textAlignment="center"
-        android:textSize="20dp" />
+        android:textColor="@color/White"
+        android:textSize="20sp" />
 
     <Switch
         android:id="@+id/switch1"
         android:layout_width="wrap_content"
-        android:layout_height="100dp"
+        android:layout_height="wrap_content"
         android:layout_below="@+id/buzzerDescription"
         android:layout_centerHorizontal="true"
         android:textOff="No"
-        android:textOn="Yes"/>
+        android:textOn="Yes" />
 
     <Button
         android:id="@+id/gameStartButton"
@@ -120,12 +120,12 @@
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
-        android:layout_marginBottom="40dp"
+        android:layout_marginBottom="40sp"
         android:nestedScrollingEnabled="false"
         android:onClick="onClickMethod"
         android:text="Start Game"
         android:textColor="@color/White"
-        android:textSize="50dp" />
+        android:textSize="50sp" />
 
 
 </RelativeLayout>

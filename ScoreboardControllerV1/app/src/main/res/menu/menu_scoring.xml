@@ -7,8 +7,23 @@
         android:title="Bluetooth Connect"
         app:showAsAction="always" />
     <item
-        android:id="@+id/action_release"
+        android:id="@+id/action_unlock"
+        android:title="Unlock"
         android:visible="false"
-        android:title="Release"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/action_release"
+        android:title="Release Lock"
+        android:visible="false"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/action_sync_from"
+        android:title="Sync From"
+        android:visible="false"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/action_sync_to"
+        android:title="Sync To"
+        android:visible="false"
         app:showAsAction="always" />
 </menu>

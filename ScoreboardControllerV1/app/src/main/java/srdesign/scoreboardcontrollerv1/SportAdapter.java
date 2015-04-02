@@ -12,9 +12,9 @@ import java.util.ArrayList;
 /**
  * Created by rebeccakehl on 3/28/15.
  */
-public class SportAdapter extends BaseAdapter {
-    private ArrayList<Sport> sports;
-    private Context context;
+class SportAdapter extends BaseAdapter {
+    private final ArrayList<Sport> sports;
+    private final Context context;
 
     public SportAdapter(ArrayList<Sport> sportList, Context ctx) {
         this.sports = sportList;

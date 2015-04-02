@@ -2,7 +2,6 @@ package srdesign.scoreboardcontrollerv1;
 
 import android.app.Activity;
 import android.app.Fragment;
-import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -12,25 +11,17 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.RadioButton;
-import android.widget.RadioGroup;
 import android.widget.Switch;
 
 /**
  * Created by rebeccakehl on 3/28/15.
  */
 public class GameCustomizerFragment extends Fragment {
-    public Sport selectedSport;
+    private Sport selectedSport;
+    private StartGameListener startGameListener;
     private RadioButton homeRedRadio;
-    private RadioButton homeBlueRadio;
     private RadioButton awayRedRadio;
-    private RadioButton awayBlueRadio;
     private Switch buzzerEnableSwitch;
-
-    StartGameListener startGameListener;
-
-    public interface StartGameListener {
-        public void gameStarted(Bundle args);
-    }
 
     @Override
     public void onAttach(Activity activity) {
@@ -63,9 +54,9 @@ public class GameCustomizerFragment extends Fragment {
 
         Button startButton = (Button) view.findViewById(R.id.gameStartButton);
         homeRedRadio = (RadioButton) view.findViewById(R.id.homeRedRadioButton);
-        homeBlueRadio = (RadioButton) view.findViewById(R.id.homeBlueRadioButton);
+        RadioButton homeBlueRadio = (RadioButton) view.findViewById(R.id.homeBlueRadioButton);
         awayRedRadio = (RadioButton) view.findViewById(R.id.awayRedRadioButton);
-        awayBlueRadio = (RadioButton) view.findViewById(R.id.awayBlueRadioButton);
+        RadioButton awayBlueRadio = (RadioButton) view.findViewById(R.id.awayBlueRadioButton);
         buzzerEnableSwitch = (Switch) view.findViewById(R.id.switch1);
 
         startButton.setOnClickListener(new View.OnClickListener() {
@@ -104,5 +95,9 @@ public class GameCustomizerFragment extends Fragment {
         args.putParcelable("sport", selectedSport);
 
         startGameListener.gameStarted(args);
+    }
+
+    public interface StartGameListener {
+        public void gameStarted(Bundle args);
     }
 }

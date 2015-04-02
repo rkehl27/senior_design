@@ -5,21 +5,30 @@ import android.os.Parcelable;
 
 import com.google.gson.annotations.SerializedName;
 
-import java.util.ArrayList;
-
 /**
  * Created by rebeccakehl on 3/18/15.
  */
 public class Sport implements Parcelable {
-    public String name;
+    public static final Creator<Sport> CREATOR = new Creator<Sport>() {
+        @Override
+        public Sport createFromParcel(Parcel source) {
+            return new Sport(source);
+        }
+
+        @Override
+        public Sport[] newArray(int size) {
+            return new Sport[size];
+        }
+    };
+    public final String name;
     @SerializedName("number_of_periods")
-    public int numberOfPeriods;
+    public final int numberOfPeriods;
     @SerializedName("minutes_per_period")
-    public int minutesPerPeriod;
+    public final int minutesPerPeriod;
     @SerializedName("seconds_per_period")
-    public int secondsPerPeriod;
+    public final int secondsPerPeriod;
     @SerializedName("scoring_string")
-    public String scoreString;
+    private final String scoreString;
 
     public Sport(Parcel src) {
         this.name = src.readString();
@@ -50,16 +59,4 @@ public class Sport implements Parcelable {
         dest.writeInt(secondsPerPeriod);
         dest.writeString(scoreString);
     }
-
-    public static final Creator<Sport> CREATOR = new Creator<Sport>() {
-        @Override
-        public Sport createFromParcel(Parcel source) {
-            return new Sport(source);
-        }
-
-        @Override
-        public Sport[] newArray(int size) {
-            return new Sport[size];
-        }
-    };
 }

@@ -18,6 +18,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.provider.Settings;
 import android.support.v7.app.ActionBarActivity;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -59,9 +60,8 @@ public class ScoringActivity extends ActionBarActivity{
     public static final int MESSAGE_TOAST = 4;
 
     private BluetoothAdapter btAdapter;
+    private BluetoothDevice bluetoothDevice;
     private static BluetoothService bluetoothService = null;
-
-    private boolean mEnablingBT;
 
     private boolean hasConnected = false;
     private boolean hasUnlocked = false;
@@ -186,7 +186,6 @@ public class ScoringActivity extends ActionBarActivity{
     @Override
     protected void onStart() {
         super.onStart();
-        mEnablingBT = false;
     }
 
     @Override
@@ -214,10 +213,11 @@ public class ScoringActivity extends ActionBarActivity{
 
     private final Handler bluetoothHandler = new Handler(){
         @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
+        public void handleMessage(Message mess) {
+            Log.v("mess", String.valueOf(mess));
+            switch (mess.what) {
                 case MESSAGE_STATE_CHANGE:
-                    switch (msg.arg1) {
+                    switch (mess.arg1) {
                         case BluetoothService.STATE_CONNECTED:
                             Toast.makeText(context, "Connected!", Toast.LENGTH_SHORT).show();
                             hasConnected = true;
@@ -239,13 +239,13 @@ public class ScoringActivity extends ActionBarActivity{
                     }
                     break;
                 case MESSAGE_WRITE:
-                    byte[] writeBuff = (byte[]) msg.obj;
+                    byte[] writeBuff = (byte[]) mess.obj;
                     String message = new String(writeBuff);
                     //TODO: Handle message from Bluetooth
-                    Toast.makeText(context, message, Toast.LENGTH_LONG).show();
+                    //Toast.makeText(context, message, Toast.LENGTH_LONG).show();
                     break;
                 case MESSAGE_TOAST:
-                    Toast.makeText(context, msg.getData().getString("toast"), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(context, mess.getData().getString("toast"), Toast.LENGTH_SHORT).show();
                     break;
             }
         }
@@ -274,39 +274,39 @@ public class ScoringActivity extends ActionBarActivity{
 
                     String address = data.getExtras().getString(DeviceListActivity.EXTRA_DEVICE_ADDRESS);
 
-                    BluetoothDevice device = btAdapter.getRemoteDevice(address);
+                    bluetoothDevice = btAdapter.getRemoteDevice(address);
 
                     if (address.matches("30:14:11:27:03:19")) {
-                        bluetoothService.connect(device);
+                        isPaired = true;
+                        bluetoothService = new BluetoothService(context, bluetoothHandler);
+                        connectionButtonPressed();
                     } else {
                         Toast.makeText(context, "Please connect to HC-06", Toast.LENGTH_SHORT).show();
-                    }
-
-                    if (getConnectionState() == BluetoothService.STATE_CONNECTED) {
-                        bluetoothService.stop();
-                        bluetoothService.start();
-                        unlockScoreboard();
                     }
                 }
                 break;
             case REQUEST_ENABLE_BT:
-                if (resultCode == Activity.RESULT_OK) {
+                if (resultCode != Activity.RESULT_OK) {
                     finishDialogNoBluetooth();
+                } else {
+                    connectionButtonPressed();
                 }
                 break;
         }
     }
 
     private void unlockScoreboard() {
+        Log.v("DEBUG", "Unlocked");
         if (hasConnected) {
             String unlockMessage = "U" + macAddress + "4" + "1234";
             send(unlockMessage.getBytes());
-            hasUnlocked = true;
-            syncToScoreboard();
+//            hasUnlocked = true;
+//            syncToScoreboard();
         }
     }
 
     private void syncToScoreboard() {
+        Log.v("DEBUG", "Synced");
         updateTimerValue();
 
         try {
@@ -449,32 +449,15 @@ public class ScoringActivity extends ActionBarActivity{
     private void connectionButtonPressed() {
         initializeAdapter();
         if (!isPaired) {
-            AlertDialog.Builder builder = new AlertDialog.Builder(context);
-            builder.setMessage("Please pair with HC-06 Then Return");
-            builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialog, int which) {
-                    Intent intentBluetooth = new Intent();
-                    intentBluetooth.setAction(Settings.ACTION_BLUETOOTH_SETTINGS);
-                    startActivityForResult(intentBluetooth, 0);
-                    dialog.dismiss();
-                }
-            });
-            builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialog, int which) {
-                    dialog.cancel();
-                }
-            });
-            AlertDialog alertDialog = builder.create();
-
-            alertDialog.show();
+            // Launch the DeviceListActivity to see devices and do scan
+            Intent serverIntent = new Intent(this, DeviceListActivity.class);
+            startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE);
         } else if (!hasConnected) {
-            Toast.makeText(context, "Connecting...", Toast.LENGTH_LONG).show();
-
-//            initializeConnection();
+            bluetoothService.stop();
+            bluetoothService.start();
+            bluetoothService.connect(bluetoothDevice);
         } else {
-            Toast.makeText(context, "Already Connected", Toast.LENGTH_SHORT).show();
+            //TODO: Display already Connected
         }
     }
 
@@ -484,246 +467,13 @@ public class ScoringActivity extends ActionBarActivity{
 
         if (!btAdapter.isEnabled()) {
             Intent enableBluetooth = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(enableBluetooth, 0);
-        }
-
-        if (btAdapter != null) {
-            Set<BluetoothDevice> pairedDevices = btAdapter.getBondedDevices();
-
-            if (pairedDevices.size() > 0) {
-                for (BluetoothDevice device : pairedDevices) {
-                    if (device.getName().equals("HC-06")) {
-                        bluetoothDevice = device;
-                        isPaired = true;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    private void connectionButtonPressed() {
-        btAdapter = BluetoothAdapter.getDefaultAdapter();
-        bluetoothService = new BluetoothService(this, bluetoothHandler);
-
-        if (!btAdapter.isEnabled()) {
-            mEnablingBT = true;
-            Intent enableBluetooth = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableBluetooth, REQUEST_ENABLE_BT);
-        } else {
-            mEnablingBT = false;
-        }
-
-        if (getConnectionState() == BluetoothService.STATE_NONE) {
-            // Launch the DeviceListActivity to see devices and do scan
-            Intent serverIntent = new Intent(this, DeviceListActivity.class);
-            startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE);
-        } else if (getConnectionState() == BluetoothService.STATE_CONNECTED) {
-            bluetoothService.stop();
-            bluetoothService.start();
         }
     }
 
     private void releaseScoreboard() {
 
     }
-
-//    private void unlockScoreboard() {
-//        if (isConnected) {
-//            connectedThread.write("U" + macAddress + "4" + "1234");
-//            connectionHandler.post(unlockSuccessRunnable);
-//            isUnlocked = true;
-//        } else {
-//            connectionHandler.post(notConnectedRunnable);
-//        }
-//    }
-//
-//    private void initializeAdapter() {
-//        bluetoothAdapter = null;
-//        bluetoothDevice = null;
-//        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-//
-//        if (!bluetoothAdapter.isEnabled()) {
-//            Intent enableBluetooth = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-//            startActivityForResult(enableBluetooth, 0);
-//        }
-//
-//        if (bluetoothAdapter != null) {
-//            Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
-//
-//            if (pairedDevices.size() > 0) {
-//                for (BluetoothDevice device : pairedDevices) {
-//                    if (device.getName().equals("HC-06")) {
-//                        bluetoothDevice = device;
-//                        isPaired = true;
-//                        break;
-//                    }
-//                }
-//            }
-//        }
-//    }
-//
-//    private void initializeConnection() {
-//        if (connectThread != null) {
-//            connectThread.cancel();
-//            connectThread = null;
-//        }
-//
-//        connectThread = new ConnectThread(bluetoothDevice);
-//        connectThread.start();
-//    }
-//
-//    public synchronized void manageConnectedSocket(BluetoothSocket socket, final BluetoothDevice device) {
-//        if (socket.isConnected()) {
-//            connectionHandler.post(connectionSuccessRunnable);
-//
-//            connectedThread = null;
-//            connectedThread = new ConnectedThread(socket);
-//            connectedThread.start();
-//
-//            new UnlockAndSyncToScoreboard().execute();
-//
-//        } else {
-//            connectionHandler.post(connectionFailRunnable);
-//        }
-//    }
-//
-//    private void connectionDropped() {
-//        isConnected = false;
-//        isUnlocked = false;
-//
-//        connectionHandler.post(connectionDroppedRunnable);
-//    }
-//
-//    private class UnlockAndSyncToScoreboard extends AsyncTask<Void, Void, Void> {
-//
-//        @Override
-//        protected Void doInBackground(Void... params) {
-//            try {
-//                Thread.sleep(500, 0);
-//                unlockScoreboard();
-//
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
-//            return null;
-//        }
-//
-//        @Override
-//        protected void onPostExecute(Void aVoid) {
-//            try {
-//                Thread.sleep(50, 0);
-//                syncToScoreboard();
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
-//        }
-//    }
-//
-//    private class ConnectThread extends Thread {
-//        private final BluetoothSocket btSocket;
-//        private final BluetoothDevice btDevice;
-//
-//        public ConnectThread(BluetoothDevice device) {
-//            BluetoothSocket tmp = null;
-//            btDevice = device;
-//
-//            UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
-//
-//            try {
-//                tmp = btDevice.createRfcommSocketToServiceRecord(uuid);
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-//
-//            btSocket = tmp;
-//        }
-//
-//        public void run() {
-//            bluetoothAdapter.cancelDiscovery();
-//
-//            try {
-//                btSocket.connect();
-//            } catch (IOException e) {
-//                try {
-//                    btSocket.close();
-//                } catch (IOException e1) {
-//                    e1.printStackTrace();
-//                    return;
-//                }
-//                e.printStackTrace();
-//            }
-//            manageConnectedSocket(btSocket, btDevice);
-//        }
-//
-//        public void cancel() {
-//            try {
-//                btSocket.close();
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-//        }
-//    }
-//
-//    private class ConnectedThread extends Thread {
-//        private final BluetoothSocket btSocket;
-//        private final InputStream inputStream;
-//        private final OutputStream outputStream;
-//
-//        public ConnectedThread(BluetoothSocket socket) {
-//            btSocket = socket;
-//            InputStream tempIn = null;
-//            OutputStream tempOut = null;
-//
-//            try {
-//                tempIn = btSocket.getInputStream();
-//                tempOut = btSocket.getOutputStream();
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-//
-//            inputStream = tempIn;
-//            outputStream = tempOut;
-//            isConnected = true;
-//        }
-//
-//        @Override
-//        public void run() {
-//            byte[] buffer = new byte[1024];
-//            int bytes;
-//
-//            while (true) {
-//                try {
-//                    bytes = inputStream.read(buffer);
-//
-//                } catch (IOException e) {
-//                    connectionDropped();
-//                }
-//
-//                //USE HANDLER TO READ MESSAGES
-//            }
-//        }
-//
-//        public void write(String string) {
-//            byte[] bytes = string.getBytes();
-//
-//            try {
-//                outputStream.write(bytes);
-//            } catch (IOException e) {
-//                connectionDropped();
-//            }
-//        }
-//
-//        public void cancel() {
-//            if (!hasError) {
-//                hasError = true;
-//            }
-//            try {
-//                btSocket.close();
-//            } catch (IOException e) {
-//            }
-//        }
-//    }
 
     /**
      * ******************************* DIALOG *********************************

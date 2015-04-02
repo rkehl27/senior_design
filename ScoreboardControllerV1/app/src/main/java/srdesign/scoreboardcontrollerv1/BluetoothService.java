@@ -4,7 +4,9 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
+import android.os.Bundle;
 import android.os.Handler;
+import android.os.Message;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -48,6 +50,7 @@ public class BluetoothService {
 
         //Pass new state to handler to post message
         //TODO: HANDLE STATE CHANGE MESSAGES
+        mHandler.obtainMessage(ScoringActivity.MESSAGE_STATE_CHANGE, state, -1).sendToTarget();
     }
 
     public synchronized int getState() {
@@ -69,21 +72,23 @@ public class BluetoothService {
     }
 
     public synchronized void connect(BluetoothDevice device) {
+        // Cancel any thread attempting to make a connection
         if (mState == STATE_CONNECTING) {
             if (mConnectThread != null) {
                 mConnectThread.cancel();
                 mConnectThread = null;
             }
-
-            if (mConnectedThread != null) {
-                mConnectedThread.cancel();
-                mConnectedThread = null;
-            }
-
-            mConnectThread = new ConnectThread(device);
-            mConnectThread.start();
-            setState(STATE_CONNECTING);
         }
+
+        // Cancel any thread currently running a connection
+        if (mConnectedThread != null) {
+            mConnectedThread.cancel(); mConnectedThread = null;
+        }
+
+        // Start the thread to connect with the given device
+        mConnectThread = new ConnectThread(device);
+        mConnectThread.start();
+        setState(STATE_CONNECTING);
     }
 
     public synchronized void connected(BluetoothSocket socket, BluetoothDevice device) {
@@ -134,12 +139,22 @@ public class BluetoothService {
         setState(STATE_NONE);
 
         //TODO: HANDLE CONNECTION FAILED
+        Message msg = mHandler.obtainMessage(ScoringActivity.MESSAGE_TOAST);
+        Bundle bundle = new Bundle();
+        bundle.putString("toast", mContext.getString(R.string.toast_unable_to_connect) );
+        msg.setData(bundle);
+        mHandler.sendMessage(msg);
     }
 
     private void connectionLost() {
         setState(STATE_NONE);
 
         //TODO: HANDLE CONNECTION LOST
+        Message msg = mHandler.obtainMessage(ScoringActivity.MESSAGE_TOAST);
+        Bundle bundle = new Bundle();
+        bundle.putString("toast", mContext.getString(R.string.toast_connection_lost) );
+        msg.setData(bundle);
+        mHandler.sendMessage(msg);
     }
 
     private class ConnectThread extends Thread {
@@ -232,6 +247,8 @@ public class BluetoothService {
         public void write(byte[] buffer) {
             try {
                 mmOutStream.write(buffer);
+//                mHandler.obtainMessage(ScoringActivity.MESSAGE_WRITE, buffer.length, -1, buffer)
+//                        .sendToTarget();
                 //TODO: Handle message sent
             } catch (IOException e) {
                 e.printStackTrace();

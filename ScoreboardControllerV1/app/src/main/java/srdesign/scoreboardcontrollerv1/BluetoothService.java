@@ -16,21 +16,18 @@ import java.util.UUID;
 /**
  * Created by rebeccakehl on 4/1/15.
  */
-public class BluetoothService {
-    private BluetoothAdapter mAdapter;
-    private Handler mHandler;
-    private ConnectThread mConnectThread;
-    private ConnectedThread mConnectedThread;
-    private int mState;
-    private Context mContext;
-
+class BluetoothService {
     public static final int STATE_NONE = 0;
     public static final int STATE_LISTEN = 1;
     public static final int STATE_CONNECTING = 2;
     public static final int STATE_CONNECTED = 3;
-    public static final int STATE_UNLOCKED = 4;
-
     private final UUID SerialPortServiceClass_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+    private final BluetoothAdapter mAdapter;
+    private final Handler mHandler;
+    private ConnectThread mConnectThread;
+    private ConnectedThread mConnectedThread;
+    private int mState;
+    private final Context mContext;
 
     public BluetoothService(Context context, Handler handler) {
         mAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -39,22 +36,12 @@ public class BluetoothService {
         mState = STATE_NONE;
     }
 
-    private void initializeBluetooth() {
-        mAdapter = BluetoothAdapter.getDefaultAdapter();
-        mState = STATE_NONE;
-        mHandler = new Handler();
-    }
-
     private synchronized void setState(int state) {
         mState = state;
 
         //Pass new state to handler to post message
         //TODO: HANDLE STATE CHANGE MESSAGES
         mHandler.obtainMessage(ScoringActivity.MESSAGE_STATE_CHANGE, state, -1).sendToTarget();
-    }
-
-    public synchronized int getState() {
-        return mState;
     }
 
     public synchronized void start() {
@@ -82,7 +69,8 @@ public class BluetoothService {
 
         // Cancel any thread currently running a connection
         if (mConnectedThread != null) {
-            mConnectedThread.cancel(); mConnectedThread = null;
+            mConnectedThread.cancel();
+            mConnectedThread = null;
         }
 
         // Start the thread to connect with the given device
@@ -91,7 +79,7 @@ public class BluetoothService {
         setState(STATE_CONNECTING);
     }
 
-    public synchronized void connected(BluetoothSocket socket, BluetoothDevice device) {
+    synchronized void connected(BluetoothSocket socket) {
         if (mConnectThread != null) {
             mConnectThread.cancel();
             mConnectThread = null;
@@ -109,6 +97,7 @@ public class BluetoothService {
     }
 
     public synchronized void stop() {
+//        isCancelling = true;
         if (mConnectThread != null) {
             mConnectThread.cancel();
             mConnectThread = null;
@@ -122,12 +111,11 @@ public class BluetoothService {
         setState(STATE_NONE);
     }
 
-    public void write(byte[] out) {
+    public void write(String out) {
         ConnectedThread thread;
 
         synchronized (this) {
             if (mState != STATE_CONNECTED) {
-                return;
             } else {
                 thread = mConnectedThread;
                 thread.write(out);
@@ -135,13 +123,28 @@ public class BluetoothService {
         }
     }
 
+//    public String read() {
+//        ConnectedThread thread;
+//
+//        String response = "";
+//        synchronized (this) {
+//            if (mState != STATE_CONNECTED) {
+//                return null;
+//            } else {
+//                thread = mConnectedThread;
+//                thread.read();
+//                return response;
+//            }
+//        }
+//    }
+
     private void connectionFailed() {
         setState(STATE_NONE);
 
         //TODO: HANDLE CONNECTION FAILED
         Message msg = mHandler.obtainMessage(ScoringActivity.MESSAGE_TOAST);
         Bundle bundle = new Bundle();
-        bundle.putString("toast", mContext.getString(R.string.toast_unable_to_connect) );
+        bundle.putString("toast", mContext.getString(R.string.toast_unable_to_connect));
         msg.setData(bundle);
         mHandler.sendMessage(msg);
     }
@@ -149,24 +152,23 @@ public class BluetoothService {
     private void connectionLost() {
         setState(STATE_NONE);
 
-        //TODO: HANDLE CONNECTION LOST
         Message msg = mHandler.obtainMessage(ScoringActivity.MESSAGE_TOAST);
         Bundle bundle = new Bundle();
-        bundle.putString("toast", mContext.getString(R.string.toast_connection_lost) );
+
+        bundle.putString("toast", mContext.getString(R.string.toast_connection_lost));
+
         msg.setData(bundle);
         mHandler.sendMessage(msg);
     }
 
     private class ConnectThread extends Thread {
         private final BluetoothSocket mmSocket;
-        private final BluetoothDevice mmDevice;
 
         public ConnectThread(BluetoothDevice device) {
-            mmDevice = device;
             BluetoothSocket temp = null;
 
             try {
-                temp = device.createRfcommSocketToServiceRecord( SerialPortServiceClass_UUID );
+                temp = device.createRfcommSocketToServiceRecord(SerialPortServiceClass_UUID);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -193,7 +195,7 @@ public class BluetoothService {
                 mConnectThread = null;
             }
 
-            connected(mmSocket, mmDevice);
+            connected(mmSocket);
         }
 
         public void cancel() {
@@ -228,12 +230,14 @@ public class BluetoothService {
         }
 
         public void run() {
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[12];
             int bytes;
-
-            while(true) {
+            while (true) {
                 try {
                     bytes = mmInStream.read(buffer);
+
+                    mHandler.obtainMessage(ScoringActivity.MESSAGE_READ, bytes, 0, buffer)
+                            .sendToTarget();
 
                     //TODO: Handle read in bytes
                 } catch (IOException e) {
@@ -243,10 +247,26 @@ public class BluetoothService {
                 }
             }
         }
+//
+//        public String read() {
+//            InputStreamReader inputStreamReader = new InputStreamReader(mmInStream);
+//            BufferedReader reader = new BufferedReader(inputStreamReader);
+//            try {
+//                String input = reader.readLine();
+//                Log.v("Input", input);
+//                reader.close();
+//                inputStreamReader.close();
+//                return input;
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//            return null;
+//        }
 
-        public void write(byte[] buffer) {
+        public void write(String string) {
+            byte[] bytes = string.getBytes();
             try {
-                mmOutStream.write(buffer);
+                mmOutStream.write(bytes);
 //                mHandler.obtainMessage(ScoringActivity.MESSAGE_WRITE, buffer.length, -1, buffer)
 //                        .sendToTarget();
                 //TODO: Handle message sent

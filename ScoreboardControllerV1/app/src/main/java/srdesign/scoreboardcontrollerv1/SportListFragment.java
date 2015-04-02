@@ -14,12 +14,7 @@ import java.util.ArrayList;
  * Created by rebeccakehl on 3/18/15.
  */
 public class SportListFragment extends ListFragment {
-    public ArrayList<Sport> sportList;
-    SportSelectedListener sportSelectedListener;
-
-    public interface SportSelectedListener {
-        public void sportSelected(Sport selectedSport);
-    }
+    private SportSelectedListener sportSelectedListener;
 
     @Override
     public void onAttach(Activity activity) {
@@ -39,11 +34,15 @@ public class SportListFragment extends ListFragment {
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        sportList = getArguments().getParcelableArrayList("sports");
+        ArrayList<Sport> sportList = getArguments().getParcelableArrayList("sports");
         getActivity().setTitle("Sports");
 
         SportAdapter adapter = new SportAdapter(sportList, this.getActivity());
         setListAdapter(adapter);
         return super.onCreateView(inflater, container, savedInstanceState);
+    }
+
+    public interface SportSelectedListener {
+        public void sportSelected(Sport selectedSport);
     }
 }

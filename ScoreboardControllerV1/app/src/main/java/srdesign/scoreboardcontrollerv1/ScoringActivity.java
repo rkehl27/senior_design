@@ -5,18 +5,15 @@ import android.app.AlertDialog;
 import android.app.Dialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothSocket;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Color;
-import android.net.wifi.WifiInfo;
-import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
 import android.os.Message;
-import android.provider.Settings;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 import android.view.Menu;
@@ -27,61 +24,115 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Set;
 import java.util.UUID;
 
-public class ScoringActivity extends ActionBarActivity{
+public class ScoringActivity extends ActionBarActivity {
 
-    final Context context = this;
-
+    public static final int MESSAGE_STATE_CHANGE = 1;
+    public static final int MESSAGE_READ = 2;
+    private static final int MESSAGE_WRITE = 3;
+    public static final int MESSAGE_TOAST = 4;
+    private static final int REQUEST_CONNECT_DEVICE = 1;
+    private static final int REQUEST_ENABLE_BT = 2;
+    private static BluetoothService bluetoothService = null;
+    private final Context context = this;
     private ToggleButton startStopButton;
     private Button minutesButton;
     private Button secondsButton;
+    private Button homeScoreButton;
+    private Button awayScoreButton;
+    private Button periodButton;
     private long previousTimerValue = 00;
     private long timerValue = 00;
     private CountDownTimer scoreboardTimer;
     private String macAddress = "112233445566";
-//    private boolean hasError = false;
+    //    private boolean hasError = false;
     private String homeScoreColor = "1";
     private String awayScoreColor = "1";
     private String buzzerEnableString = "0";
     private boolean isCounting = false;
-
-    private static final int REQUEST_CONNECT_DEVICE = 1;
-    private static final int REQUEST_ENABLE_BT = 2;
-
-    public static final int MESSAGE_STATE_CHANGE = 1;
-    public static final int MESSAGE_READ = 2;
-    public static final int MESSAGE_WRITE = 3;
-    public static final int MESSAGE_TOAST = 4;
-
     private BluetoothAdapter btAdapter;
     private BluetoothDevice bluetoothDevice;
-    private static BluetoothService bluetoothService = null;
-
     private boolean hasConnected = false;
     private boolean hasUnlocked = false;
+    private final Handler bluetoothHandler = new Handler() {
+        @Override
+        public void handleMessage(Message mess) {
+            Log.v("mess", String.valueOf(mess));
+            switch (mess.what) {
+                case MESSAGE_STATE_CHANGE:
+                    switch (mess.arg1) {
+                        case BluetoothService.STATE_CONNECTED:
+                            Toast.makeText(context, "Connected!", Toast.LENGTH_SHORT).show();
+                            hasConnected = true;
+                            bluetoothConnectItem.setVisible(false);
+                            unlockScoreboard();
+                            break;
+                        case BluetoothService.STATE_CONNECTING:
+                            Toast.makeText(context, "Connecting...", Toast.LENGTH_SHORT).show();
+                            hasConnected = false;
+                            break;
+                        case BluetoothService.STATE_LISTEN:
+                            //do nothing
+                        case BluetoothService.STATE_NONE:
+                            //Toast.makeText(context, "Not Connected", Toast.LENGTH_SHORT).show();
+
+                            hasConnected = false;
+                            bluetoothConnectItem.setVisible(true);
+                            syncToScoreboardItem.setVisible(false);
+                            syncFromScoreboardItem.setVisible(false);
+                            releaseScoreboardItem.setVisible(false);
+
+                            //TODO: Handle Not Connected
+                    }
+                    break;
+                case MESSAGE_READ:
+                    byte[] readBuf = (byte[]) mess.obj;
+
+                    if (!hasUnlocked) {
+                        if (readBuf[0] == 1) {
+                            hasUnlocked = true;
+                            unlockScoreboardItem.setVisible(false);
+                            releaseScoreboardItem.setVisible(true);
+                            syncToScoreboardItem.setVisible(true);
+                            syncFromScoreboardItem.setVisible(true);
+                        } else {
+                            Toast.makeText(context, "Could not Unlock", Toast.LENGTH_SHORT).show();
+                            bluetoothConnectItem.setVisible(true);
+                            syncToScoreboardItem.setVisible(false);
+                            syncFromScoreboardItem.setVisible(false);
+                            releaseScoreboardItem.setVisible(false);
+                        }
+                    } else {
+                        updateView(readBuf);
+                    }
+                    break;
+                case MESSAGE_WRITE:
+                    byte[] writeBuff = (byte[]) mess.obj;
+                    String message = new String(writeBuff);
+                    //TODO: Handle message from Bluetooth
+                    //Toast.makeText(context, message, Toast.LENGTH_LONG).show();
+                    break;
+                case MESSAGE_TOAST:
+                    Toast.makeText(context, mess.getData().getString("toast"), Toast.LENGTH_SHORT).show();
+                    break;
+            }
+        }
+    };
     private boolean isPaired = false;
+    private MenuItem releaseScoreboardItem;
+    private MenuItem bluetoothConnectItem;
+    private MenuItem syncToScoreboardItem;
+    private MenuItem syncFromScoreboardItem;
+    private MenuItem unlockScoreboardItem;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scoring);
 
-        WifiManager wifiManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
-        WifiInfo wInfo = wifiManager.getConnectionInfo();
-        String macAddress1 = wInfo.getMacAddress();
-        if (macAddress1 != null) {
-            macAddress = macAddress1.replaceAll(":", "");
-        } else {
-            String uuid = UUID.randomUUID().toString();
-            uuid = uuid.replace("-", "");
-            macAddress = uuid.substring(0, 12);
-        }
+        readMacAddressFromPrefs();
 
         int homeRadio = 0;
         int awayRadio = 0;
@@ -93,7 +144,7 @@ public class ScoringActivity extends ActionBarActivity{
             homeRadio = extras.getInt("homeRadio");
             awayRadio = extras.getInt("awayRadio");
             buzzerEnable = extras.getBoolean("buzzerEnable");
-            selectedSport = (Sport) extras.getParcelable("sport");
+            selectedSport = extras.getParcelable("sport");
         }
 
         if (buzzerEnable) {
@@ -109,15 +160,32 @@ public class ScoringActivity extends ActionBarActivity{
         updateCounterView();
     }
 
+    private void readMacAddressFromPrefs() {
+        SharedPreferences sharedPreferences = getPreferences(Context.MODE_PRIVATE);
+        macAddress = sharedPreferences.getString("macaddr", null);
+
+        if (macAddress == null) {
+            String uuid = UUID.randomUUID().toString();
+            uuid = uuid.replace("-", "");
+            macAddress = uuid.substring(0, 12);
+
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+
+            editor.remove("macaddr");
+            editor.putString("macaddr", macAddress);
+            editor.apply();
+        }
+    }
+
     private void buildView(Sport selectedSport, int homeRadio, int awayRadio) {
-        timerValue = selectedSport.minutesPerPeriod * 60 * 1000;
+        timerValue = (selectedSport.minutesPerPeriod * 60 + selectedSport.secondsPerPeriod) * 1000;
         previousTimerValue = timerValue;
 
         minutesButton = (Button) findViewById(R.id.minutesButton);
         secondsButton = (Button) findViewById(R.id.secondsButton);
 
-        minutesButton.setOnClickListener(new NumberClickListener(minutesButton));
-        secondsButton.setOnClickListener(new NumberClickListener(secondsButton));
+        minutesButton.setOnClickListener(new NumberClickListener(minutesButton, selectedSport));
+        secondsButton.setOnClickListener(new NumberClickListener(secondsButton, selectedSport));
 
         startStopButton = (ToggleButton) findViewById(R.id.startStopButton);
         startStopButton.setOnClickListener(new View.OnClickListener() {
@@ -147,7 +215,9 @@ public class ScoringActivity extends ActionBarActivity{
                 }
                 //countDownTimer.cancel();
                 isCounting = false;
-                scoreboardTimer.cancel();
+                if (scoreboardTimer != null) {
+                    scoreboardTimer.cancel();
+                }
                 timerValue = previousTimerValue + 100;
                 initializeCountDownTimer();
                 try {
@@ -159,7 +229,7 @@ public class ScoringActivity extends ActionBarActivity{
             }
         });
 
-        final Button homeScoreButton = (Button) findViewById(R.id.homeScoreButton);
+        homeScoreButton = (Button) findViewById(R.id.homeScoreButton);
         if (homeRadio == 0) {
             homeScoreButton.setTextColor(Color.RED);
             homeScoreColor = "1";
@@ -167,9 +237,9 @@ public class ScoringActivity extends ActionBarActivity{
             homeScoreButton.setTextColor(Color.BLUE);
             homeScoreColor = "0";
         }
-        homeScoreButton.setOnClickListener(new NumberClickListener(homeScoreButton));
+        homeScoreButton.setOnClickListener(new NumberClickListener(homeScoreButton, selectedSport));
 
-        final Button awayScoreButton = (Button) findViewById(R.id.awayScoreButton);
+        awayScoreButton = (Button) findViewById(R.id.awayScoreButton);
         if (awayRadio == 0) {
             awayScoreButton.setTextColor(Color.RED);
             awayScoreColor = "1";
@@ -177,93 +247,16 @@ public class ScoringActivity extends ActionBarActivity{
             awayScoreButton.setTextColor(Color.BLUE);
             awayScoreColor = "0";
         }
-        awayScoreButton.setOnClickListener(new NumberClickListener(awayScoreButton));
+        awayScoreButton.setOnClickListener(new NumberClickListener(awayScoreButton, selectedSport));
 
-        final Button periodButton = (Button) findViewById(R.id.periodButton);
-        periodButton.setOnClickListener(new NumberClickListener(periodButton));
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
+        periodButton = (Button) findViewById(R.id.periodButton);
+        periodButton.setOnClickListener(new NumberClickListener(periodButton, selectedSport));
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (bluetoothService != null) {
-            bluetoothService.stop();
-        }
-    }
-
-    public int getConnectionState() {
-        return bluetoothService.getState();
-    }
-
-    public void send(byte[] out) {
-        if (out.length > 0) {
-            bluetoothService.write(out);
-        }
-    }
-
-    private final Handler bluetoothHandler = new Handler(){
-        @Override
-        public void handleMessage(Message mess) {
-            Log.v("mess", String.valueOf(mess));
-            switch (mess.what) {
-                case MESSAGE_STATE_CHANGE:
-                    switch (mess.arg1) {
-                        case BluetoothService.STATE_CONNECTED:
-                            Toast.makeText(context, "Connected!", Toast.LENGTH_SHORT).show();
-                            hasConnected = true;
-                            //TODO: Handle Connected
-                            unlockScoreboard();
-                            //Once connected unlock scoreboard
-                            break;
-                        case BluetoothService.STATE_CONNECTING:
-                            Toast.makeText(context, "Connecting...", Toast.LENGTH_SHORT).show();
-                            hasConnected = false;
-                            //TODO: Handle Connecting
-                            break;
-                        case BluetoothService.STATE_LISTEN:
-                            //do nothing
-                        case BluetoothService.STATE_NONE:
-                            Toast.makeText(context, "Not Connected", Toast.LENGTH_SHORT).show();
-                            hasConnected = false;
-                            //TODO: Handle Not Connected
-                    }
-                    break;
-                case MESSAGE_WRITE:
-                    byte[] writeBuff = (byte[]) mess.obj;
-                    String message = new String(writeBuff);
-                    //TODO: Handle message from Bluetooth
-                    //Toast.makeText(context, message, Toast.LENGTH_LONG).show();
-                    break;
-                case MESSAGE_TOAST:
-                    Toast.makeText(context, mess.getData().getString("toast"), Toast.LENGTH_SHORT).show();
-                    break;
-            }
-        }
-    };
-
-    public void finishDialogNoBluetooth() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setMessage(R.string.alert_dialog_no_bt)
-                .setIcon(android.R.drawable.ic_dialog_info)
-                .setTitle(R.string.app_name)
-                .setCancelable( false )
-                .setPositiveButton(R.string.alert_dialog_ok, new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        //finish();
-                    }
-                });
-        AlertDialog alert = builder.create();
-        alert.show();
+        releaseScoreboard();
     }
 
     @Override
@@ -271,7 +264,6 @@ public class ScoringActivity extends ActionBarActivity{
         switch (requestCode) {
             case REQUEST_CONNECT_DEVICE:
                 if (resultCode == Activity.RESULT_OK) {
-
                     String address = data.getExtras().getString(DeviceListActivity.EXTRA_DEVICE_ADDRESS);
 
                     bluetoothDevice = btAdapter.getRemoteDevice(address);
@@ -295,38 +287,117 @@ public class ScoringActivity extends ActionBarActivity{
         }
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.menu_scoring, menu);
+
+        for (int i = 0; i < menu.size(); i++) {
+            MenuItem tempItem = menu.getItem(i);
+            switch (tempItem.getItemId()) {
+                case R.id.action_connect:
+                    bluetoothConnectItem = tempItem;
+                    break;
+                case R.id.action_release:
+                    releaseScoreboardItem = tempItem;
+                    break;
+                case R.id.action_sync_from:
+                    syncFromScoreboardItem = tempItem;
+                    break;
+                case R.id.action_sync_to:
+                    syncToScoreboardItem = tempItem;
+                    break;
+                case R.id.action_unlock:
+                    unlockScoreboardItem = tempItem;
+                    break;
+            }
+        }
+
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        switch (item.getItemId()) {
+            case R.id.action_connect:
+                connectionButtonPressed();
+                break;
+            case R.id.action_release:
+                releaseScoreboard();
+                releaseScoreboardItem.setVisible(false);
+                break;
+            case R.id.action_sync_from:
+                syncFromScoreboard();
+                break;
+            case R.id.action_sync_to:
+                syncToScoreboard();
+                break;
+            case R.id.action_unlock:
+                unlockScoreboard();
+                break;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
     private void unlockScoreboard() {
         Log.v("DEBUG", "Unlocked");
         if (hasConnected) {
             String unlockMessage = "U" + macAddress + "4" + "1234";
-            send(unlockMessage.getBytes());
-//            hasUnlocked = true;
-//            syncToScoreboard();
+            send(unlockMessage);
+        }
+    }
+
+    private void releaseScoreboard() {
+        if (hasUnlocked) {
+            hasUnlocked = false;
+            hasConnected = false;
+
+            send("Z" + macAddress + "0");
+            bluetoothService.stop();
         }
     }
 
     private void syncToScoreboard() {
-        Log.v("DEBUG", "Synced");
-        updateTimerValue();
-
-        try {
-            Thread.sleep(50, 0);
-
-            if (hasUnlocked) {
-                String syncString1 = "V" + macAddress + "1" + homeScoreColor;
-                String syncString2 = "W" + macAddress + "1" + awayScoreColor;
-                String syncString3 = "b" + macAddress + "1" + buzzerEnableString;
-
-                send(syncString1.getBytes());
-                Thread.sleep(59,0);
-                send(syncString2.getBytes());
-                Thread.sleep(50,0);
-                send(syncString3.getBytes());
-                Thread.sleep(50,0);
-            }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+        String homeScoreTens = "0";
+        String homeScoreOnes;
+        String awayScoreTens = "0";
+        String awayScoreOnes;
+        if (homeScoreButton.getText().length() == 2) {
+            homeScoreTens = String.valueOf(homeScoreButton.getText().toString().charAt(0));
+            homeScoreOnes = String.valueOf(homeScoreButton.getText().toString().charAt(1));
+        } else {
+            homeScoreOnes = String.valueOf(homeScoreButton.getText().toString().charAt(0));
         }
+
+        if (awayScoreButton.getText().length() == 2) {
+            awayScoreTens = String.valueOf(awayScoreButton.getText().toString().charAt(0));
+            awayScoreOnes = String.valueOf(awayScoreButton.getText().toString().charAt(1));
+        } else {
+            awayScoreOnes = String.valueOf(awayScoreButton.getText().toString().charAt(0));
+        }
+
+        String period = periodButton.getText().toString();
+        String tensMinutes = String.valueOf(minutesButton.getText().toString().charAt(0));
+        String minutes = String.valueOf(minutesButton.getText().toString().charAt(1));
+        String tensSeconds = String.valueOf(secondsButton.getText().toString().charAt(0));
+        String seconds = String.valueOf(secondsButton.getText().toString().charAt(1));
+
+        String refreshScoreboardString = "a" + macAddress + "<" + homeScoreColor
+                + homeScoreTens + homeScoreOnes + awayScoreColor + awayScoreTens
+                + awayScoreOnes + tensMinutes + minutes + tensSeconds + seconds
+                + period + buzzerEnableString;
+
+        Log.d("Refresh", refreshScoreboardString);
+
+        send(refreshScoreboardString);
+    }
+
+    private void syncFromScoreboard() {
+        send("X" + macAddress + "0");
     }
 
     private void updateTimerValue() {
@@ -341,7 +412,7 @@ public class ScoringActivity extends ActionBarActivity{
 
         if (hasUnlocked) {
             String updateTimerString = "F" + macAddress + "4" + timerString;
-            send(updateTimerString.getBytes());
+            send(updateTimerString);
         }
     }
 
@@ -380,10 +451,10 @@ public class ScoringActivity extends ActionBarActivity{
         if (hasUnlocked) {
             if (scoreButton.getTag().toString().contains("Home")) {
                 String homeUpdate = "G" + macAddress + "2" + scoreValue;
-                send(homeUpdate.getBytes());
+                send(homeUpdate);
             } else if (scoreButton.getTag().toString().contains("Away")) {
                 String awayUpdate = "H" + macAddress + "2" + scoreValue;
-                send(awayUpdate.getBytes());
+                send(awayUpdate);
             }
         }
     }
@@ -393,7 +464,7 @@ public class ScoringActivity extends ActionBarActivity{
 
         if (hasUnlocked) {
             String updatePeriod = "P" + macAddress + "1" + periodValue;
-            send(updatePeriod.getBytes());
+            send(updatePeriod);
         }
     }
 
@@ -404,7 +475,7 @@ public class ScoringActivity extends ActionBarActivity{
             public void onTick(long millisUntilFinished) {
                 if (hasUnlocked) {
                     String updateTimer = "I" + macAddress + "0";
-                    send(updateTimer.getBytes());
+                    send(updateTimer);
                 }
                 timerValue = millisUntilFinished - 100;
                 updateCounterView();
@@ -418,68 +489,92 @@ public class ScoringActivity extends ActionBarActivity{
         };
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_scoring, menu);
+    private void updateView(byte[] buffer) {
+        int homeColor = buffer[0];
+        int homeScore = buffer[1];
+        int awayColor = buffer[2];
+        int awayScore = buffer[3];
+        int tensMinutes = buffer[4];
+        int onesMinutes = buffer[5];
+        int tensSeconds = buffer[6];
+        int onesSeconds = buffer[7];
+        int period = buffer[8];
+        int buzzer = buffer[9];
 
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        if (id == R.id.action_connect) {
-            connectionButtonPressed();
-        } else if (id == R.id.action_release) {
-            releaseScoreboard();
+        if (homeColor == 1) {
+            homeScoreButton.setTextColor(Color.RED);
+            homeScoreColor = "0";
+        } else {
+            homeScoreButton.setTextColor(Color.BLUE);
+            homeScoreColor = "1";
         }
 
-        return super.onOptionsItemSelected(item);
+        if (awayColor == 1) {
+            awayScoreButton.setTextColor(Color.RED);
+            awayScoreColor = "0";
+        } else {
+            awayScoreButton.setTextColor(Color.BLUE);
+            awayScoreColor = "1";
+        }
+
+        homeScoreButton.setText(String.valueOf(homeScore));
+        awayScoreButton.setText(String.valueOf(awayScore));
+
+        minutesButton.setText(String.format("%d%d", tensMinutes, onesMinutes));
+        secondsButton.setText(String.format("%d%d", tensSeconds, onesSeconds));
+
+        periodButton.setText(String.valueOf(period));
+
+        buzzerEnableString = String.valueOf(buzzer);
     }
 
     /**
      * ******************************* BLUETOOTH CONNECTION *********************************
      */
 
-    private void connectionButtonPressed() {
-        initializeAdapter();
-        if (!isPaired) {
-            // Launch the DeviceListActivity to see devices and do scan
-            Intent serverIntent = new Intent(this, DeviceListActivity.class);
-            startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE);
-        } else if (!hasConnected) {
-            bluetoothService.stop();
-            bluetoothService.start();
-            bluetoothService.connect(bluetoothDevice);
-        } else {
-            //TODO: Display already Connected
+    void send(String out) {
+        if (out.length() > 0) {
+            bluetoothService.write(out);
         }
     }
 
-    private void initializeAdapter() {
+    void finishDialogNoBluetooth() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setMessage(R.string.alert_dialog_no_bt)
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .setTitle(R.string.app_name)
+                .setCancelable(false)
+                .setPositiveButton(R.string.alert_dialog_ok, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        //finish();
+                    }
+                });
+        AlertDialog alert = builder.create();
+        alert.show();
+    }
+
+    private void connectionButtonPressed() {
         btAdapter = null;
         btAdapter = BluetoothAdapter.getDefaultAdapter();
 
         if (!btAdapter.isEnabled()) {
             Intent enableBluetooth = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableBluetooth, REQUEST_ENABLE_BT);
+        } else if (!isPaired) {
+            Intent serverIntent = new Intent(this, DeviceListActivity.class);
+            startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE);
+        } else if (!hasConnected) {
+            bluetoothService.stop();
+            bluetoothService.start();
+            bluetoothService.connect(bluetoothDevice);
         }
-    }
-
-    private void releaseScoreboard() {
-
     }
 
     /**
      * ******************************* DIALOG *********************************
      */
 
-    private void numberDialog(final Button buttonPressed) {
+    private void numberDialog(final Button buttonPressed, final Sport selectedSport) {
         final Dialog dialog = new Dialog(context);
         dialog.setContentView(R.layout.dialog_number_pad);
         String titleString = "Set " + buttonPressed.getTag().toString() + " : " + buttonPressed.getText().toString();
@@ -558,11 +653,12 @@ public class ScoringActivity extends ActionBarActivity{
                         Toast.makeText(context, "Max Score is 99", Toast.LENGTH_SHORT).show();
                     }
                 } else if (buttonTag.contains("eriod")) {
-                    if (numberString.length() == 1) {
+                    int periodVal = Integer.valueOf(numberString);
+                    if (periodVal <= selectedSport.numberOfPeriods) {
                         updatePeriod(buttonPressed, numberString);
                         dialog.dismiss();
                     } else {
-                        Toast.makeText(context, "Max Period is 9", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(context, "Max Period is " + selectedSport.numberOfPeriods, Toast.LENGTH_SHORT).show();
                     }
                 } else if (buttonTag.contains("Timer")) {
                     if (numberString.length() == 1) {
@@ -595,9 +691,11 @@ public class ScoringActivity extends ActionBarActivity{
 
     private class NumberClickListener implements View.OnClickListener {
         Button buttonClicked = null;
+        final Sport selectedSport;
 
-        public NumberClickListener(Button button) {
+        public NumberClickListener(Button button, Sport sport) {
             buttonClicked = button;
+            selectedSport = sport;
         }
 
         @Override
@@ -608,7 +706,7 @@ public class ScoringActivity extends ActionBarActivity{
                 startStopButton.toggle();
             }
 
-            numberDialog(buttonClicked);
+            numberDialog(buttonClicked, selectedSport);
         }
     }
 }

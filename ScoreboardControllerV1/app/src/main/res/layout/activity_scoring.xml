@@ -159,8 +159,7 @@
             android:id="@+id/scoringGridView"
             android:layout_width="match_parent"
             android:layout_height="fill_parent"
-            android:numColumns="4">
-            </GridView>
+            android:numColumns="4"></GridView>
 
     </LinearLayout>
 

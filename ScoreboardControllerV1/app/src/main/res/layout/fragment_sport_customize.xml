@@ -12,123 +12,123 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@color/White"
             android:text="Sport Name:  "
-            android:textSize="40sp"/>
+            android:textColor="@color/White"
+            android:textSize="35sp" />
 
         <EditText
+            android:id="@+id/sportName"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:id="@+id/sportName"
-            android:textColor="@color/White"
-            android:textSize="40sp"
-            android:hint="i.e. Basketball"
-            android:textColorHint="@color/DarkGray"
-            android:maxLines="1"
             android:capitalize="words"
-            android:minLines="1"
+            android:hint="i.e. Basketball"
+            android:inputType="text|textCapWords"
             android:lines="1"
-            android:inputType="text|textCapWords" />
+            android:maxLines="1"
+            android:minLines="1"
+            android:textColor="@color/White"
+            android:textColorHint="@color/DarkGray"
+            android:textSize="35sp" />
 
     </LinearLayout>
 
     <LinearLayout
-        android:layout_marginTop="15sp"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="15sp"
         android:orientation="horizontal">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Num. Periods  "
-            android:textSize="40sp"
-            android:textColor="@color/White"/>
+            android:textColor="@color/White"
+            android:textSize="35sp" />
 
         <Button
             android:id="@+id/minusPeriod"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:text="-"
             android:textColor="@color/White"
-            android:textSize="60sp"
-            android:text="-"/>
+            android:textSize="55sp" />
 
         <TextView
             android:id="@+id/numPeriods"
-            android:layout_width="50sp"
+            android:layout_width="45sp"
             android:layout_height="wrap_content"
-            android:textColor="@color/White"
-            android:textSize="50sp"
             android:gravity="center"
-            android:text="1"/>
+            android:text="1"
+            android:textColor="@color/White"
+            android:textSize="45sp" />
 
         <Button
             android:id="@+id/plusPeriod"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:text="+"
             android:textColor="@color/White"
-            android:textSize="60sp"
-            android:text="+"/>
+            android:textSize="55sp" />
 
-        </LinearLayout>
+    </LinearLayout>
 
     <LinearLayout
-        android:layout_marginTop="15sp"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="15sp"
         android:orientation="horizontal">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Time Per Period  "
-            android:textSize="40sp"
-            android:textColor="@color/White"/>
+            android:textColor="@color/White"
+            android:textSize="35sp" />
 
         <Button
             android:id="@+id/minutesPeriod"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@color/White"
-            android:textSize="60sp"
             android:tag="Timer Minutes"
-            android:text="00"/>
+            android:text="00"
+            android:textColor="@color/White"
+            android:textSize="55sp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@color/White"
-            android:textSize="60sp"
             android:gravity="center"
-            android:text=":"/>
+            android:text=":"
+            android:textColor="@color/White"
+            android:textSize="55sp" />
 
         <Button
             android:id="@+id/secondsPeriod"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:tag="Timer Seconds"
+            android:text="00"
             android:textColor="@color/White"
-            android:textSize="60sp"
-            android:text="00"/>
+            android:textSize="55sp" />
 
     </LinearLayout>
 
     <LinearLayout
-        android:layout_marginTop="15sp"
         android:layout_width="match_parent"
-        android:layout_height="fill_parent">
+        android:layout_height="fill_parent"
+        android:layout_marginTop="15sp">
 
         <Button
             android:id="@+id/customize_done"
-            android:layout_marginTop="25sp"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginTop="25sp"
             android:text="Done"
-            android:textSize="40sp"
             android:textColor="@color/White"
-            android:layout_gravity="center"/>
+            android:textSize="40sp" />
 
-        </LinearLayout>
+    </LinearLayout>
 
 
 </LinearLayout>

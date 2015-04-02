@@ -3,9 +3,7 @@ package srdesign.scoreboardcontrollerv1;
 import android.app.Activity;
 import android.app.Dialog;
 import android.app.DialogFragment;
-import android.app.Fragment;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.view.LayoutInflater;
@@ -19,8 +17,6 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.gson.Gson;
-
 import java.util.ArrayList;
 
 /**
@@ -28,12 +24,8 @@ import java.util.ArrayList;
  */
 public class SportCustomizerFragment extends DialogFragment {
 
+    private SportCustomizerListener sportCustomizerListener;
     private Context context;
-    SportCustomizerListener sportCustomizerListener;
-
-    public interface SportCustomizerListener {
-        public void sportCustomizerDone(Sport sport);
-    }
 
     @Override
     public void onAttach(Activity activity) {
@@ -220,6 +212,10 @@ public class SportCustomizerFragment extends DialogFragment {
         });
 
         dialog.show();
+    }
+
+    public interface SportCustomizerListener {
+        public void sportCustomizerDone(Sport sport);
     }
 
     private class NumberClickListener implements View.OnClickListener {

@@ -1,15 +1,12 @@
 package srdesign.scoreboardcontrollerv1;
 
-import android.app.Activity;
 import android.app.Dialog;
 import android.app.FragmentManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarActivity;
-import android.support.v7.app.ActionBarDrawerToggle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -30,13 +27,10 @@ import java.util.ArrayList;
 /**
  * Created by rebeccakehl on 3/18/15.
  */
-public class SportActivity extends ActionBarActivity implements SportListFragment.SportSelectedListener, GameCustomizerFragment.StartGameListener, SportCustomizerFragment.SportCustomizerListener{
-    final Context context = this;
-    public ArrayList<Sport> sportList;
+public class SportActivity extends ActionBarActivity implements SportListFragment.SportSelectedListener, GameCustomizerFragment.StartGameListener, SportCustomizerFragment.SportCustomizerListener {
+    private final Context context = this;
+    private ArrayList<Sport> sportList;
     private ArrayList<Sport> customSports;
-    public GameCustomizerFragment gameCustomizerFragment;
-    public SportListFragment sportListFragment;
-    public SportCustomizerFragment sportCustomizerFragment;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -100,7 +94,7 @@ public class SportActivity extends ActionBarActivity implements SportListFragmen
         int size = sharedPreferences.getInt("array_size", 0);
 
         Gson gson = new Gson();
-        for (int i=0; i<size; i++) {
+        for (int i = 0; i < size; i++) {
             String json = sharedPreferences.getString("sport_" + i, null);
             Sport sport = gson.fromJson(json, Sport.class);
             sportList.add(sport);
@@ -118,15 +112,15 @@ public class SportActivity extends ActionBarActivity implements SportListFragmen
 
         Gson gson = new Gson();
 
-        for (int i=0; i<customSports.size(); i++) {
-            editor.remove("sport_"  + i);
+        for (int i = 0; i < customSports.size(); i++) {
+            editor.remove("sport_" + i);
             String json = gson.toJson(customSports.get(i));
             editor.putString("sport_" + i, json);
         }
 
         editor.putInt("array_size", customSports.size());
 
-        editor.commit();
+        editor.apply();
     }
 
     private void launchSportList() {
@@ -135,13 +129,13 @@ public class SportActivity extends ActionBarActivity implements SportListFragmen
         Bundle bundle = new Bundle();
         bundle.putParcelableArrayList("sports", sportList);
 
-        sportListFragment = new SportListFragment();
+        SportListFragment sportListFragment = new SportListFragment();
         sportListFragment.setArguments(bundle);
         fm.beginTransaction().replace(android.R.id.content, sportListFragment).commit();
     }
 
-    public void launchSportCustomizer() {
-        sportCustomizerFragment = new SportCustomizerFragment();
+    void launchSportCustomizer() {
+        SportCustomizerFragment sportCustomizerFragment = new SportCustomizerFragment();
         android.app.FragmentTransaction transaction = getFragmentManager().beginTransaction();
         transaction.replace(android.R.id.content, sportCustomizerFragment)
                 .addToBackStack("sportcustom")
@@ -181,7 +175,7 @@ public class SportActivity extends ActionBarActivity implements SportListFragmen
         Bundle bundle = new Bundle();
         bundle.putParcelable("sport", selectedSport);
 
-        gameCustomizerFragment = new GameCustomizerFragment();
+        GameCustomizerFragment gameCustomizerFragment = new GameCustomizerFragment();
         gameCustomizerFragment.setArguments(bundle);
         android.app.FragmentTransaction transaction = getFragmentManager().beginTransaction();
         transaction.replace(android.R.id.content, gameCustomizerFragment)
@@ -292,7 +286,6 @@ public class SportActivity extends ActionBarActivity implements SportListFragmen
                 } else {
                     if (numberString.length() == 1) {
                         buttonPressed.setText("0" + numberString);
-                        updateTimerValue();
                         dialog.dismiss();
                     } else if (numberString.length() == 2) {
                         Long numberValue = Long.parseLong(numberString);
@@ -301,7 +294,6 @@ public class SportActivity extends ActionBarActivity implements SportListFragmen
                             Toast.makeText(context, "Max Seconds is 59", Toast.LENGTH_SHORT).show();
                         } else {
                             buttonPressed.setText(numberString);
-                            updateTimerValue();
                             dialog.dismiss();
                         }
                     } else if (numberString.length() > 2) {
@@ -316,40 +308,5 @@ public class SportActivity extends ActionBarActivity implements SportListFragmen
         });
 
         dialog.show();
-    }
-
-    private void updateTimerValue() {
-//        long minutesValue = Long.parseLong(minutesButton.getText().toString());
-//        long secondsValue = Long.parseLong(secondsButton.getText().toString());
-
-//        timerValue = (minutesValue * 60 + secondsValue) * 1000;
-//        previousTimerValue = timerValue;
-//
-//        String timerString = minutesButton.getText().toString() + secondsButton.getText().toString();
-//
-//        if (isConnected && isUnlocked) {
-//            connectedThread.write("F" + macAddress + "4" + timerString);
-//        } else {
-//            Toast.makeText(context, "Not Connected", Toast.LENGTH_SHORT).show();
-//        }
-    }
-
-    private class NumberClickListener implements View.OnClickListener {
-        Button buttonClicked = null;
-
-        public NumberClickListener(Button button) {
-            buttonClicked = button;
-        }
-
-        @Override
-        public void onClick(View v) {
-//            if (buttonClicked.getTag().toString().contains("Timer") && startStopButton.isChecked()) {
-//                scoreboardTimer.cancel();
-//                timerValue = previousTimerValue;
-//                startStopButton.toggle();
-//            }
-
-            numberDialog(buttonClicked);
-        }
     }
 }
